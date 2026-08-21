@@ -33,7 +33,7 @@
   /* ---------------- 登录页 ---------------- */
   function viewLogin() {
     // hero 大字逐字浮现（参考 awesome-design 官网动效：字母级 stagger reveal）
-    const heroLetters = "let change happen".split("").map((ch, i) =>
+    const heroLetters = "Let change happen".split("").map((ch, i) =>
       `<span class="hl" style="animation-delay:${(0.35 + i * 0.05).toFixed(2)}s">${ch === " " ? "&nbsp;" : ch}</span>`).join("");
     return `
       <div class="m-brand">

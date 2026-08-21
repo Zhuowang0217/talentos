@@ -111,7 +111,7 @@
     const active = R.current();
     const route = R.routes[active];
     document.getElementById("sidebar").innerHTML = renderSidebar(active);
-    document.getElementById("view").innerHTML = hero(route) + (views[route.view] || "");
+    document.getElementById("view").innerHTML = hero(route) + (views[route.view] ? views[route.view]() : "");
     document.querySelectorAll(".sidebar-item").forEach(el =>
       el.classList.toggle("active", el.getAttribute("href") === "#/" + active));
   }

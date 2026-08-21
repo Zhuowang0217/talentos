@@ -21,44 +21,58 @@ body {
   display: flex; flex-direction: column;
 }
 
-/* ---------- 手机边框（PC 浏览器查看时呈现 H5 设备样式，真机不受影响） ---------- */
+/* ---------- 手机边框（iPhone 14 标准：390×844 逻辑像素，真机不受影响） ---------- */
 @media (min-width: 480px) {
-  body { background: var(--c-surface-soft); padding: 36px 0; }
+  body {
+    background: var(--c-surface-soft);
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 28px 16px;
+  }
   .m-app {
-    border: 10px solid #16161a;
-    border-radius: 40px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
-    min-height: calc(100vh - 72px);
+    width: 390px; max-width: 390px; min-height: 844px;
+    border: 11px solid #101014;
+    border-radius: 54px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
     position: relative;
     background: var(--c-canvas);
+    padding-top: calc(var(--sp-xl) + 26px); /* 给灵动岛留位 */
   }
+  /* 灵动岛（Dynamic Island） */
   .m-app::before {
     content: "";
-    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-    width: 128px; height: 22px;
-    background: #16161a; border-radius: 0 0 14px 14px;
+    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+    width: 122px; height: 34px;
+    background: #101014; border-radius: 20px;
+    z-index: 10;
   }
 }
 
-/* ---------- 标题动效："let change happen" 打字机（出现后定格） ---------- */
-.m-eyebrow-anim {
-  margin: calc(-1 * var(--sp-xl)) 0 var(--sp-xl); /* 收拢品牌区与表单的间距 */
-  min-height: 22px;
+/* ---------- 首页 Hero 动效（参考 awesome-design 官网：大字逐字浮现） ---------- */
+.m-hero {
+  margin: var(--sp-sm) 0 var(--sp-xxl);
+  min-height: 118px;
 }
-.anim-type {
-  display: inline-block;
+.hero-eyebrow {
   font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  color: var(--c-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  width: 0;
-  border-right: 2px solid var(--c-ink);
-  animation: typeIn 1.4s steps(17) 0.4s forwards, cursorBlink 1s step-end infinite;
+  font-size: var(--fs-caption); letter-spacing: 0.14em;
+  opacity: 0; animation: fadeUp 0.5s ease 0.15s forwards;
 }
-@keyframes typeIn { to { width: 17ch; } }
-@keyframes cursorBlink { 50% { border-color: transparent; } }
+.hero-line {
+  font-size: 33px; font-weight: 700;
+  letter-spacing: -0.6px; line-height: 1.18;
+  margin: 6px 0 8px;
+}
+.hl {
+  display: inline-block;
+  opacity: 0; transform: translateY(14px);
+  animation: fadeUp 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+.hero-sub {
+  font-size: 13px; font-weight: var(--fw-330);
+  opacity: 0; animation: fadeSub 0.6s ease 1.5s forwards;
+}
+@keyframes fadeUp { to { opacity: 1; transform: none; } }
+@keyframes fadeSub { to { opacity: 0.72; } }
 
 /* ---------- 品牌头 ---------- */
 .m-brand { margin-bottom: var(--sp-xxl); }
@@ -161,8 +175,12 @@ body {
   font-size: 15px; font-weight: var(--fw-480); font-family: var(--font-sans); cursor: pointer;
 }
 
-/* ---------- 成功页 / 无权限页 ---------- */
-.m-center { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+/* ---------- 成功页 / 无权限页（内容顶对齐，不再垂直居中） ---------- */
+.m-center {
+  flex: 1; display: flex; flex-direction: column;
+  justify-content: flex-start;
+  padding-top: clamp(32px, 9vh, 88px);
+}
 .m-ok-circle {
   width: 72px; height: 72px; border-radius: var(--r-full);
   background: var(--c-block-mint);

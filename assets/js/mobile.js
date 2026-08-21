@@ -32,6 +32,9 @@
 
   /* ---------------- 登录页 ---------------- */
   function viewLogin() {
+    // hero 大字逐字浮现（参考 awesome-design 官网动效：字母级 stagger reveal）
+    const heroLetters = "let change happen".split("").map((ch, i) =>
+      `<span class="hl" style="animation-delay:${(0.35 + i * 0.05).toFixed(2)}s">${ch === " " ? "&nbsp;" : ch}</span>`).join("");
     return `
       <div class="m-brand">
         <div class="logo">TalentOS</div>
@@ -39,7 +42,11 @@
         <span class="identity">手机号验证码登录</span>
       </div>
 
-      <div class="m-eyebrow-anim"><span class="anim-type">let change happen</span></div>
+      <div class="m-hero">
+        <div class="hero-eyebrow">TALENT OS · 2026</div>
+        <div class="hero-line">${heroLetters}</div>
+        <div class="hero-sub">让改变，在每一次练习中发生</div>
+      </div>
 
       <div class="m-field">
         <label>手机号</label>

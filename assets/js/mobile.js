@@ -2,8 +2,8 @@
    TalentOS 移动端（候选人端 H5）
    路由：#/login（默认） #/success #/no-permission
    权限真实逻辑 = 白名单判断（WHITELIST）
-   演示分支选择器（下拉+二次弹窗）= 外挂测试装置，只决定演示走哪条
-   分支，不写入、不影响真实权限逻辑
+   演示分支选择（随登录二次弹窗出现）= 外挂测试装置，只决定演示
+   走哪条分支，不写入、不影响真实权限逻辑
    ============================================================ */
 (function () {
   const WHITELIST = ["13800000001", "13800000002", "13800000003"]; // 真实权限名单（mock）
@@ -11,7 +11,7 @@
   const LAST_PHONE_KEY = "tos_demo_last_phone";
   const RED_NOTE = "本页面只做 demo 阶段有无权限分支选择，不是真正的页面";
 
-  const state = { branch: "granted" }; // 演示分支选择器的当前值（外挂）
+  let modalBranch = "granted"; // 弹窗内当前选中的演示分支
 
   const $app = () => document.getElementById("app");
   const maskPhone = p => p.slice(0, 3) + "****" + p.slice(7);
@@ -39,6 +39,8 @@
         <span class="identity">手机号验证码登录</span>
       </div>
 
+      <div class="m-eyebrow-anim"><span class="anim-type">let change happen</span></div>
+
       <div class="m-field">
         <label>手机号</label>
         <input class="m-input" id="phone" type="tel" maxlength="11" placeholder="请输入 11 位手机号" value="13800000001">
@@ -53,16 +55,7 @@
 
       <button class="m-btn-primary" data-action="login">登 录</button>
 
-      <div class="demo-branch">
-        <div class="demo-title">演示分支选择（外挂装置）</div>
-        <select class="m-select" id="branch-select">
-          <option value="granted">a. 走「有权限」分支</option>
-          <option value="denied">b. 走「无权限」分支</option>
-        </select>
-        <span class="red-note">⚠ ${RED_NOTE}</span>
-      </div>
-
-      <p class="m-hint">演示环境说明：验证码为 123456；权限白名单号码 138****0001 / 0002 / 0003，其余号码真实逻辑判定为无权限。</p>`;
+      <p class="m-hint">演示环境说明：验证码为 123456；权限白名单号码 138****0001 / 0002 / 0003，其余号码真实逻辑判定为无权限。点击登录后可在弹窗中选择演示分支。</p>`;
   }
 
   /* ---------------- 登录成功页（占位） ---------------- */
@@ -77,7 +70,7 @@
           <h2>引导页</h2>
           <p>登录后的引导流程（下一迭代实现），当前为占位页。</p>
         </div>
-        <button class="m-btn-primary" data-action="back-login">返回登录</button>
+        <button class="m-btn-back" data-action="back-login">返回登录</button>
       </div>`;
   }
 
@@ -112,14 +105,14 @@
         </div>
         ${phone ? `<p style="font-size:var(--fs-body-sm);opacity:.7">当前号码：${maskPhone(phone)}</p>` : ""}
         ${recordHtml}
-        <button class="m-btn-ghost" style="width:100%;margin-top:var(--sp-lg)" data-action="back-login">返回登录</button>
+        <button class="m-btn-back" data-action="back-login">返回登录</button>
       </div>`;
   }
 
-  /* ---------------- 二次弹窗（登录瞬间） ---------------- */
+  /* ---------------- 二次弹窗（登录瞬间 · 含演示分支选择） ---------------- */
   function showBranchModal(phone) {
     const realGranted = WHITELIST.includes(phone);
-    const branchText = state.branch === "granted" ? "有权限" : "无权限";
+    modalBranch = realGranted ? "granted" : "denied"; // 默认跟随真实逻辑判定，演示可切换
     const mask = document.createElement("div");
     mask.className = "m-mask";
     mask.innerHTML = `
@@ -127,12 +120,37 @@
         <h3>登录分支确认</h3>
         <span class="red-note">⚠ ${RED_NOTE}</span>
         <div class="real-logic">
-          真实逻辑判定：${maskPhone(phone)} ${realGranted ? "在白名单内 → 有权限" : "不在白名单内 → 无权限"}<br>
-          当前演示选择：<b>${branchText}</b> 分支${realGranted === (state.branch === "granted") ? "" : "（已覆盖真实判定）"}
+          真实逻辑判定：${maskPhone(phone)} ${realGranted ? "在白名单内 → 有权限" : "不在白名单内 → 无权限"}
+        </div>
+        <div class="branch-opts">
+          <div class="branch-opt ${modalBranch === "granted" ? "selected" : ""}" data-action="pick-branch" data-branch="granted">
+            <span class="radio"></span>a. 走「有权限」分支
+          </div>
+          <div class="branch-opt ${modalBranch === "denied" ? "selected" : ""}" data-action="pick-branch" data-branch="denied">
+            <span class="radio"></span>b. 走「无权限」分支
+          </div>
         </div>
         <div class="acts">
           <button class="m-btn-ghost" data-action="modal-cancel">取消</button>
           <button class="m-btn-primary" data-action="modal-confirm">确认进入</button>
+        </div>
+      </div>`;
+    document.body.appendChild(mask);
+  }
+
+  /* ---------------- 运营中台说明弹窗（提交申请后） ---------------- */
+  function showOpsModal() {
+    const mask = document.createElement("div");
+    mask.className = "m-mask";
+    mask.innerHTML = `
+      <div class="m-modal">
+        <h3>演示说明 · 后续流程</h3>
+        <div class="real-logic">
+          正式设计中，开通申请提交后进入<b>运营中台</b>：运营人员管理申请账号，人工将每条申请<b>引流到对应的学校（企业）</b>，完成权限开通与账号关联。
+        </div>
+        <p style="font-size:var(--fs-body-sm);opacity:.7">本期不实现运营中台，仅在此说明该流程，不再拓展。</p>
+        <div class="acts">
+          <button class="m-btn-primary" data-action="modal-close">知道了</button>
         </div>
       </div>`;
     document.body.appendChild(mask);
@@ -144,8 +162,6 @@
     $app().innerHTML = r === "login" ? viewLogin()
       : r === "success" ? viewSuccess()
       : viewNoPermission();
-    const sel = document.getElementById("branch-select");
-    if (sel) sel.value = state.branch;
   }
 
   /* ---------------- 事件 ---------------- */
@@ -161,18 +177,23 @@
     if (act === "login") {
       const phone = (document.getElementById("phone").value || "").trim();
       const code = (document.getElementById("code").value || "").trim();
-      const selEl = document.getElementById("branch-select");
-      if (selEl) state.branch = selEl.value; // 外挂选择，不触碰白名单逻辑
       if (!/^1\d{10}$/.test(phone)) { toast("请输入正确的 11 位手机号", true); return; }
       if (code !== "123456") { toast("验证码错误（演示环境为 123456）", true); return; }
       localStorage.setItem(LAST_PHONE_KEY, phone);
       showBranchModal(phone);
       return;
     }
+    if (act === "pick-branch") {
+      modalBranch = el.dataset.branch;
+      document.querySelectorAll(".branch-opt").forEach(o =>
+        o.classList.toggle("selected", o.dataset.branch === modalBranch));
+      return;
+    }
     if (act === "modal-cancel") { document.querySelectorAll(".m-mask").forEach(m => m.remove()); return; }
+    if (act === "modal-close") { document.querySelectorAll(".m-mask").forEach(m => m.remove()); return; }
     if (act === "modal-confirm") {
       document.querySelectorAll(".m-mask").forEach(m => m.remove());
-      location.hash = state.branch === "granted" ? "#/success" : "#/no-permission";
+      location.hash = modalBranch === "granted" ? "#/success" : "#/no-permission";
       return;
     }
     if (act === "back-login") { location.hash = "#/login"; return; }
@@ -186,6 +207,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify(records));
       render();
       toast("申请已记录（后台记录手机号与申请信息）");
+      showOpsModal();
       return;
     }
   });

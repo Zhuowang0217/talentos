@@ -162,7 +162,141 @@ html, body {
 .grid { display: grid; gap: var(--sp-md); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
 .placeholder-note {
   font-family: var(--font-mono); font-size: var(--fs-caption);
   color: var(--c-ink); opacity: 0.5;
+}
+
+/* ============ 教师端（管理后台）组件 ============ */
+
+/* 双端切换 */
+.mode-switch {
+  display: flex; gap: 4px; background: var(--c-surface-soft);
+  border-radius: var(--r-pill); padding: 4px;
+}
+.mode-switch button {
+  border: none; background: transparent; cursor: pointer;
+  font-family: var(--font-sans); font-size: var(--fs-body-sm); font-weight: var(--fw-480);
+  padding: 5px 14px; border-radius: var(--r-pill); color: var(--c-ink);
+}
+.mode-switch button.selected { background: var(--c-primary); color: var(--c-on-primary); }
+
+/* 页头 */
+.page-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-md); margin-bottom: var(--sp-lg);
+}
+.page-head h1 { font-size: var(--fs-page-title); font-weight: var(--fw-540); letter-spacing: -0.3px; }
+.page-sub { font-size: var(--fs-body-sm); font-weight: var(--fw-330); opacity: 0.75; }
+
+/* 统计块 */
+.stat-row { margin-bottom: var(--sp-lg); }
+.stat-tile { display: flex; flex-direction: column; gap: var(--sp-xxs); }
+.stat-val { font-size: 28px; font-weight: var(--fw-700); font-family: var(--font-mono); }
+
+/* 待办中心 */
+.todo-item {
+  display: flex; gap: var(--sp-sm); padding: var(--sp-sm) 0;
+  border-bottom: 1px solid var(--c-hairline-soft); align-items: flex-start;
+}
+.todo-item:last-child { border-bottom: none; }
+.todo-icon {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: var(--r-full);
+  background: var(--c-surface-soft); display: flex; align-items: center; justify-content: center;
+  font-size: var(--fs-caption); font-weight: var(--fw-540);
+}
+.todo-item.high .todo-icon { background: var(--c-block-coral); }
+.todo-item.mid .todo-icon { background: var(--c-block-cream); }
+
+/* 能力热力图 */
+.heat-row {
+  display: flex; align-items: center; gap: var(--sp-sm);
+  padding: 6px 0;
+}
+.heat-name { width: 90px; font-size: var(--fs-body-sm); flex-shrink: 0; }
+.heat-track {
+  flex: 1; height: 10px; background: var(--c-hairline-soft);
+  border-radius: var(--r-full); position: relative; overflow: visible;
+}
+.heat-track.small { display: inline-block; width: 80px; vertical-align: middle; margin-right: var(--sp-xs); height: 6px; }
+.heat-fill {
+  height: 100%; border-radius: var(--r-full); background: var(--c-chart-2);
+}
+.heat-std {
+  position: absolute; top: -3px; width: 2px; height: 16px;
+  background: var(--c-ink); border-radius: 1px;
+}
+.heat-val { width: 30px; text-align: right; }
+
+/* 动态流 */
+.dyn-item { padding: 6px 0; font-size: var(--fs-body-sm); border-bottom: 1px solid var(--c-hairline-soft); }
+.dyn-item:last-child { border-bottom: none; }
+
+/* 项目卡片 */
+.project-card { cursor: pointer; transition: box-shadow 0.15s; }
+.project-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.project-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-sm); }
+.project-meta { margin-top: var(--sp-sm); }
+.status-chip {
+  flex-shrink: 0; font-size: var(--fs-caption); font-weight: var(--fw-500);
+  border-radius: var(--r-sm); padding: 3px 10px; white-space: nowrap;
+}
+.status-chip.running { background: var(--c-block-mint); }
+.status-chip.done { background: var(--c-hairline-soft); }
+
+/* 新建向导 */
+.wizard-bar { display: flex; gap: var(--sp-xs); margin-bottom: var(--sp-lg); }
+.wizard-step {
+  flex: 1; text-align: center; padding: 10px 0; font-size: var(--fs-body-sm);
+  background: var(--c-surface-soft); border-radius: var(--r-md); font-weight: var(--fw-330);
+}
+.wizard-step.on { background: var(--c-primary); color: var(--c-on-primary); font-weight: var(--fw-540); }
+.wizard-step.past { background: var(--c-block-mint); }
+.wizard-nav { display: flex; justify-content: flex-end; gap: var(--sp-sm); margin-top: var(--sp-lg); }
+
+.form-row { margin-bottom: var(--sp-lg); }
+.form-row label { display: block; font-size: var(--fs-body-sm); font-weight: var(--fw-540); margin-bottom: var(--sp-xs); }
+.text-input {
+  width: 100%; border: 1px solid var(--c-hairline); border-radius: var(--r-md);
+  padding: 12px 14px; font-family: var(--font-sans); font-size: var(--fs-body);
+}
+.gen-box { text-align: center; padding: var(--sp-xxl) var(--sp-lg); }
+.gen-box p { margin-bottom: var(--sp-md); }
+.invite-code {
+  display: inline-block; font-size: 20px; font-weight: var(--fw-700);
+  background: var(--c-surface-soft); border-radius: var(--r-md); padding: 12px 24px;
+  letter-spacing: 0.1em; margin: var(--sp-sm) 0;
+}
+.job-tag {
+  display: inline-block; border: 1px solid var(--c-hairline); border-radius: var(--r-pill);
+  padding: 6px 14px; font-size: var(--fs-body-sm); margin: 0 var(--sp-xs) var(--sp-xs) 0; cursor: pointer;
+}
+.job-tag.selected { background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-primary); }
+.course-row { display: flex; gap: var(--sp-sm); cursor: pointer; }
+.edited-tag { margin-left: auto; background: var(--c-block-cream); border-radius: var(--r-sm); padding: 1px 6px; font-size: 10px; }
+
+/* 学员表格 */
+.table { width: 100%; border-collapse: collapse; font-size: var(--fs-body-sm); }
+.table th {
+  text-align: left; font-size: var(--fs-caption); font-weight: var(--fw-500);
+  padding: var(--sp-sm) var(--sp-md); border-bottom: 1px solid var(--c-hairline);
+  background: var(--c-surface-soft);
+}
+.table td { padding: var(--sp-sm) var(--sp-md); border-bottom: 1px solid var(--c-hairline-soft); }
+.risk-tag {
+  background: var(--c-block-coral); border-radius: var(--r-sm);
+  font-size: var(--fs-caption); padding: 2px 8px; white-space: nowrap;
+}
+
+/* 终审队列 */
+.review-item {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--sp-md);
+  padding: var(--sp-md) 0; border-bottom: 1px solid var(--c-hairline-soft);
+}
+.review-item:last-child { border-bottom: none; }
+.review-acts { display: flex; gap: var(--sp-xs); flex-shrink: 0; }
+.ai-score {
+  background: var(--c-block-mint); border-radius: var(--r-sm);
+  padding: 2px 8px; margin-left: var(--sp-xs);
 }

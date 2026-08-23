@@ -280,9 +280,14 @@ window.TOS_M4 = (function () {
         <div class="office-scene">
           <img src="assets/img/station-bg.jpg" alt="我的工位">
           ${zones}
-          <div class="you-tag" style="left:76%;top:84%;cursor:pointer" data-action="go" data-to="#/profile">你</div>
         </div>
-        
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <p class="mono" style="font-size:10px;opacity:.4">点击导师找 TA 互动</p>
+          <div data-action="go" data-to="#/profile" style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border-radius:var(--r-pill);background:var(--c-surface-soft)">
+            <span style="font-size:13px">我</span>
+            <span style="font-size:10px;opacity:.5">个人中心</span>
+          </div>
+        </div>
       </div>`;
   }
 

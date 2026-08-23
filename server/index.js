@@ -507,17 +507,6 @@ const server = http.createServer(async (req, res) => {
     }
     sb.msgs.push({ role: nextAgent, name: SANDBOX_AGENTS[nextAgent].name, text: reply });
 
-    // 有时第二个 Agent 也会跟一句（30%概率）
-    if (Math.random() < 0.3 && sb.round < sb.maxRounds) {
-      const second = pickSecondAgent(nextAgent);
-      let reply2;
-      if (MODE === "real") {
-        try { reply2 = await sandboxAgentCall(second, sb.msgs); }
-        catch (e) { reply2 = sandboxFallback(second); }
-      } else { reply2 = sandboxFallback(second); }
-      sb.msgs.push({ role: second, name: SANDBOX_AGENTS[second].name, text: reply2 });
-    }
-
     return json(res, 200, { mode: MODE, msgs: sb.msgs, round: sb.round, maxRounds: sb.maxRounds, finished: sb.finished });
   }
 

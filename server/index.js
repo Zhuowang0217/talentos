@@ -838,8 +838,8 @@ const server = http.createServer(async (req, res) => {
     if (MODE === "real") {
       try {
         const evidence = pt.evidence.join("\n");
-        const sys = `评估候选人的「${course.cap}」能力。基于其回答打分（0-100）。必须用中文。\n输出 JSON：{"score":65,"level":2,"comment":"中文评述","improvement":"中文建议"}`;
-        const out = await llmChat([{ role: "system", content: sys }, { role: "user", content: "Candidate responses:\n" + evidence }]);
+        const sys = `评估候选人的「${course.cap}」能力。基于其回答打分（0-100）。所有输出必须为纯中文，禁止输出任何英文。评述要落到具体行为表现，建议要具体可操作。\n输出 JSON：{"score":65,"level":2,"comment":"评述（纯中文）","improvement":"建议（纯中文）"}`;
+        const out = await llmChat([{ role: "system", content: sys }, { role: "user", content: "候选人的回答：\n" + evidence }]);
         const jm = out.replace(/```(?:json)?\n?/g, "").replace(/```/g, "").trim().match(/\{[\s\S]*\}/);
         if (jm) { pt.evaluated = JSON.parse(jm[0]); return json(res, 200, pt.evaluated); }
       } catch (e) { /* fall through */ }

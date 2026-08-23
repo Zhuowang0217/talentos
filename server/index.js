@@ -409,9 +409,29 @@ const SANDBOX_AGENTS = {
   qa:  { name: PERSONAS.qa_chen.identity.name + "（" + PERSONAS.qa_chen.identity.role + "）", label: PERSONAS.qa_chen.label, color: PERSONAS.qa_chen.color, key: "qa_chen" },
 };
 
+/* ============ 任务上下文（外挂参数，可按场景/难度/候选人动态配置） ============ */
+const TASK_CONTEXT = {
+  scenario: "product_review",
+  title: "智能客服升级 · 第一期评审会",
+  difficulty: 5,
+  difficultyNote: "候选人需要在多方压力下保持结构化沟通，同时应对技术和业务的双重挑战",
+  candidate: {
+    level: "junior",
+    background: "应届生，有一定AI产品理论基础，缺乏真实项目经验",
+    strengths: ["学习意愿强", "对AI技术有基础认知"],
+    focusAreas: ["跨职能协作", "抗压与坚韧", "结构化思维"],
+  },
+  sessionGoal: "在高压评审场景下观察并锻炼候选人的多方沟通、优先级判断与抗压能力",
+  documents: {
+    prdSummary: "智能客服升级第一期：RAG+知识库覆盖TOP100高频问题，6周开发+2周测试，预期效率提升30%。复杂问题转人工兜底。",
+    techConstraints: "不微调模型，使用公司统一GLM-4服务，置信度低于阈值自动转人工。复用现有微服务框架。",
+  },
+};
+
 /* ============ 提示词模板引擎（人格 + 任务上下文 → 系统提示词） ============ */
 function buildPersonaPrompt(persona, taskCtx) {
-  return `You are playing a character in a product review meeting. Stay in character.
+  const t = taskCtx || TASK_CONTEXT;
+  return `You are playing a character in a simulated workplace scenario. Stay in character.
 
 [Identity]
 You are ${persona.identity.name}, ${persona.identity.role}.
@@ -423,21 +443,27 @@ Communication: ${persona.personality.communication}
 You care about: ${persona.personality.values.join(", ")}
 You dislike: ${persona.personality.petPeeves.join(", ")}
 
-[Current Meeting]
-Topic: ${taskCtx.title}
-Goal: ${taskCtx.goal}
-PRD summary: ${taskCtx.prdSummary}
+[Session Context]
+Scenario: ${t.scenario} (Difficulty ${t.difficulty}/5)
+Guidance: ${t.difficultyNote || ""}
+Candidate profile: ${t.candidate.level}, ${t.candidate.background}
+Strengths: ${t.candidate.strengths.join(", ")}
+Focus areas: ${t.candidate.focusAreas.join(", ")}
+Session goal: ${t.sessionGoal}
+PRD summary: ${t.documents?.prdSummary || t.prdSummary || ""}
+Tech constraints: ${t.documents?.techConstraints || ""}
 
 [Response Rules]
 Tone: ${persona.speaking.tone}
 Typical expressions: ${persona.speaking.habits.join(" / ")}
 Keep under ${persona.speaking.length}. Respond in Chinese.
+Stay in character - challenge the candidate based on YOUR personality and values.
 
 [Output Format - MANDATORY]
 You MUST respond in valid JSON:
 {"reply":"your dialogue in Chinese","satisfied":false}
 
-"satisfied" rules: set true ONLY when the candidate has adequately addressed YOUR specific concerns (related to your values and pet peeves). Set false if you still have doubts or want to ask more.`;
+"satisfied" rules: set true ONLY when the candidate has adequately addressed YOUR specific concerns (related to your values and pet peeves). Set false if you still have doubts.`;
 }
 
 function pickAgent(userText, sb) {
@@ -486,11 +512,7 @@ function sandboxFallback(agent) {
 
 async function sandboxAgentCall(agentKey, msgs, taskOverride) {
   const persona = PERSONAS[SANDBOX_AGENTS[agentKey].key] || PERSONAS.dev_zhang;
-  const taskCtx = taskOverride || {
-    title: SANDBOX_SCENARIO.title,
-    goal: SANDBOX_SCENARIO.goal,
-    prdSummary: SANDBOX_SCENARIO.prd.sections.slice(0, 3).map(s => s.h + ": " + s.c.slice(0, 50)).join("; "),
-  };
+  const taskCtx = taskOverride || TASK_CONTEXT;
   const systemPrompt = buildPersonaPrompt(persona, taskCtx);
   const recent = msgs.slice(-8);
   const history = recent.map(m => `[${m.name}] ${m.text}`).join("\n");

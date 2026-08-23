@@ -326,26 +326,119 @@ const SANDBOX_SCENARIO = {
   agents: ["dev", "biz", "qa"],
 };
 
-const SANDBOX_AGENTS = {
-  dev: {
-    name: "张工（研发负责人）",
-    label: "研发",
+/* ============ 人格 Agent 数据层（结构化，可存储/编辑/复用） ============ */
+const PERSONAS = {
+  dev_zhang: {
+    identity: {
+      name: "张工",
+      role: "研发负责人",
+      background: "10年后端开发经验，从一线工程师升到技术管理。对代码质量有洁癖，经历过三次因赶工期导致的生产事故，从此对时间承诺极度谨慎。管理着一个8人研发团队。",
+    },
+    personality: {
+      traits: ["仔细", "直接", "技术执着"],
+      communication: "简短直接，不拐弯抹角，偶尔显得生硬。不会主动寒暄，但专业能力极强。",
+      values: ["工程质量", "技术债务最小化", "系统稳定性"],
+      petPeeves: ["模糊的需求", "不切实际的时间承诺", "没有接口设计就谈上线"],
+    },
+    knowledge: {
+      domain: "后端架构、系统设计、性能优化、数据库、RAG技术栈",
+      level: "expert",
+    },
+    speaking: {
+      tone: "直接，偶尔带技术术语，不会修饰措辞",
+      habits: ["从技术角度看", "我需要看到具体的", "这个实现起来有风险", "技术债务怎么办"],
+      length: "50-80字",
+    },
     color: "#c5b0f4",
-    prompt: "你是一场AI产品评审会中的研发负责人张工。你非常仔细，对技术细节要求极高，但沟通方式比较直接甚至生硬。你会质疑需求的可行性，关注技术债务和实现成本。你不善于寒暄但专业能力很强。你的发言通常简短、直接、有技术含量。控制在60字以内。当前议题是评审一个智能客服升级方案（RAG+知识库，6周开发+2周测试）。",
+    label: "研发",
   },
-  biz: {
-    name: "刘总（业务方）",
-    label: "业务",
+  biz_liu: {
+    identity: {
+      name: "刘总",
+      role: "业务方负责人",
+      background: "销售出身，一路做到业务负责人。对客户需求极度敏感，但技术理解有限。习惯用商业价值来推动决策，坚信先上线再迭代。掌管着公司的客户服务KPI。",
+    },
+    personality: {
+      traits: ["思维活跃", "急切", "商业导向"],
+      communication: "热情直接，喜欢用数字和商业价值说话，偶尔打断别人。",
+      values: ["客户满意度", "市场份额", "快速上线"],
+      petPeeves: ["过度技术化讨论", "推迟上线时间", "功能做太少"],
+    },
+    knowledge: {
+      domain: "客户需求、市场竞争、商业模型、客服运营",
+      level: "business",
+    },
+    speaking: {
+      tone: "热情急切，偶尔强势，用商业逻辑施压",
+      habits: ["客户等不了", "竞品都已经", "我理解技术有限制但是"],
+      length: "50-80字",
+    },
     color: "#f3c9b6",
-    prompt: "你是一场AI产品评审会中的业务方负责人刘总。你思维天马行空，经常提出不切实际的额外需求。你对技术限制不太了解，总希望功能越多越好、上线越快越好。你会用商业价值来施压。你的发言热情但缺乏技术理解。控制在60字以内。当前议题是评审一个智能客服升级方案。",
+    label: "业务",
   },
-  qa: {
-    name: "陈姐（测试负责人）",
-    label: "测试",
+  qa_chen: {
+    identity: {
+      name: "陈姐",
+      role: "测试负责人",
+      background: "12年测试经验，见过太多上线后爆雷的案例。性格温和但在质量问题上寸步不让。会上习惯先观察再发言，会后可能会单独找产品经理聊顾虑。",
+    },
+    personality: {
+      traits: ["温和", "细致", "谨慎"],
+      communication: "会上话不多，发言简短温和但切中要害。会后可能会单独找你。",
+      values: ["用户体验", "边界条件覆盖", "异常处理"],
+      petPeeves: ["没有测试计划的排期", "忽略边界条件", "轻率地说没问题"],
+    },
+    knowledge: {
+      domain: "测试策略、边界分析、用户体验、质量保障",
+      level: "expert",
+    },
+    speaking: {
+      tone: "温和委婉，但问到点子上",
+      habits: ["那个我想问一下", "边界条件考虑了吗", "用户如果遇到会怎样"],
+      length: "40-60字",
+    },
     color: "#c8e6cd",
-    prompt: "你是一场AI产品评审会中的测试负责人陈姐。你在评审会上比较沉默，不会当场提出太多反对意见。但你内心有很多疑虑，偶尔会委婉地提出测试相关的关切。你关注边界条件、异常处理和用户体验。你的发言简短、温和但切中要害。控制在60字以内。当前议题是评审一个智能客服升级方案。",
+    label: "测试",
   },
 };
+
+// Agent 简写映射（兼容现有代码）
+const SANDBOX_AGENTS = {
+  dev: { name: PERSONAS.dev_zhang.identity.name + "（" + PERSONAS.dev_zhang.identity.role + "）", label: PERSONAS.dev_zhang.label, color: PERSONAS.dev_zhang.color, key: "dev_zhang" },
+  biz: { name: PERSONAS.biz_liu.identity.name + "（" + PERSONAS.biz_liu.identity.role + "）", label: PERSONAS.biz_liu.label, color: PERSONAS.biz_liu.color, key: "biz_liu" },
+  qa:  { name: PERSONAS.qa_chen.identity.name + "（" + PERSONAS.qa_chen.identity.role + "）", label: PERSONAS.qa_chen.label, color: PERSONAS.qa_chen.color, key: "qa_chen" },
+};
+
+/* ============ 提示词模板引擎（人格 + 任务上下文 → 系统提示词） ============ */
+function buildPersonaPrompt(persona, taskCtx) {
+  return `You are playing a character in a product review meeting. Stay in character.
+
+[Identity]
+You are ${persona.identity.name}, ${persona.identity.role}.
+${persona.identity.background}
+
+[Personality]
+Traits: ${persona.personality.traits.join(", ")}.
+Communication: ${persona.personality.communication}
+You care about: ${persona.personality.values.join(", ")}
+You dislike: ${persona.personality.petPeeves.join(", ")}
+
+[Current Meeting]
+Topic: ${taskCtx.title}
+Goal: ${taskCtx.goal}
+PRD summary: ${taskCtx.prdSummary}
+
+[Response Rules]
+Tone: ${persona.speaking.tone}
+Typical expressions: ${persona.speaking.habits.join(" / ")}
+Keep under ${persona.speaking.length}. Respond in Chinese.
+
+[Output Format - MANDATORY]
+You MUST respond in valid JSON:
+{"reply":"your dialogue in Chinese","satisfied":false}
+
+"satisfied" rules: set true ONLY when the candidate has adequately addressed YOUR specific concerns (related to your values and pet peeves). Set false if you still have doubts or want to ask more.`;
+}
 
 function pickAgent(userText, msgs) {
   if (/技术|实现|接口|架构|性能|研发|开发/.test(userText)) return "dev";
@@ -375,15 +468,30 @@ function sandboxFallback(agent) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function sandboxAgentCall(agent, msgs) {
-  const a = SANDBOX_AGENTS[agent];
+async function sandboxAgentCall(agentKey, msgs) {
+  const persona = PERSONAS[SANDBOX_AGENTS[agentKey].key] || PERSONAS.dev_zhang;
+  const prdSummary = SANDBOX_SCENARIO.prd.sections.slice(0, 3).map(s => s.h + ": " + s.c.slice(0, 50)).join("; ");
+  const taskCtx = {
+    title: SANDBOX_SCENARIO.title,
+    goal: SANDBOX_SCENARIO.goal,
+    prdSummary: prdSummary || "RAG+knowledge base, 6 weeks dev + 2 weeks test",
+  };
+  const systemPrompt = buildPersonaPrompt(persona, taskCtx);
   const recent = msgs.slice(-8);
   const history = recent.map(m => `[${m.name}] ${m.text}`).join("\n");
   const out = await llmChat([
-    { role: "system", content: a.prompt },
-    { role: "user", content: "评审会对话记录：\n" + history + "\n\n请你以 " + a.name + " 的身份，针对最后的发言给出回应。60字以内，口语化，只输出台词。" },
+    { role: "system", content: systemPrompt },
+    { role: "user", content: "Meeting dialogue:\n" + history + "\n\nRespond as " + persona.identity.name + " in JSON format." },
   ]);
-  return out.trim().slice(0, 150);
+  // Parse structured JSON
+  const jm = out.match(/\{[\s\S]*\}/);
+  if (jm) {
+    try {
+      const p = JSON.parse(jm[0]);
+      return { reply: (p.reply || "").trim().slice(0, 150), satisfied: p.satisfied === true };
+    } catch (e) { /* fall through */ }
+  }
+  return { reply: out.trim().slice(0, 150), satisfied: false };
 }
 
 async function sandboxEvaluate(msgs) {
@@ -506,14 +614,26 @@ const server = http.createServer(async (req, res) => {
 
     // 轮转选择下一个发言的 Agent（根据内容简单匹配）
     const nextAgent = pickAgent(text, sb.msgs);
-    let reply;
+    let result;
     if (MODE === "real") {
-      try { reply = await sandboxAgentCall(nextAgent, sb.msgs); }
-      catch (e) { reply = sandboxFallback(nextAgent); }
+      try { result = await sandboxAgentCall(nextAgent, sb.msgs); }
+      catch (e) { result = { reply: sandboxFallback(nextAgent), satisfied: false }; }
     } else {
-      reply = sandboxFallback(nextAgent);
+      result = { reply: sandboxFallback(nextAgent), satisfied: Math.random() < 0.2 };
     }
-    sb.msgs.push({ role: nextAgent, name: SANDBOX_AGENTS[nextAgent].name, text: reply });
+    sb.msgs.push({ role: nextAgent, name: SANDBOX_AGENTS[nextAgent].name, text: result.reply });
+
+    // 人格驱动结束：Agent 满意度追踪
+    if (result.satisfied) {
+      sb.satisfaction = sb.satisfaction || {};
+      sb.satisfaction[nextAgent] = true;
+      const agentKeys = SANDBOX_SCENARIO.agents || ["dev", "biz", "qa"];
+      const satCount = agentKeys.filter(k => sb.satisfaction[k]).length;
+      if (satCount >= 2 && !sb.finished) {
+        sb.finished = true;
+        sb.msgs.push({ role: "system", name: "", text: "各方关切已得到充分回应，评审顺利结束。" });
+      }
+    }
 
     return json(res, 200, { mode: MODE, msgs: sb.msgs, round: sb.round, maxRounds: sb.maxRounds, finished: sb.finished });
   }

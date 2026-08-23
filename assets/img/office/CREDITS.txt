@@ -1,0 +1,1 @@
+像素场景与角色素材基于 Star Office UI 项目（代码MIT/美术仅演示用途），见 README 归属说明

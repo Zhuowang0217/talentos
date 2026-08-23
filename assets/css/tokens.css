@@ -1,0 +1,70 @@
+/* ============================================================
+   TalentOS 设计 token —— 全部源自根目录 DESIGN.md（Figma 语言提炼）
+   规则：业务样式只允许引用本文件变量，禁止硬编码颜色/字号/间距
+   ============================================================ */
+:root {
+  /* —— 单色核心 —— */
+  --c-primary: #000000;
+  --c-on-primary: #ffffff;
+  --c-ink: #000000;
+  --c-canvas: #ffffff;
+  --c-inverse-canvas: #000000;
+  --c-inverse-ink: #ffffff;
+  --c-hairline: #e6e6e6;
+  --c-hairline-soft: #f1f1f1;
+  --c-surface-soft: #f7f7f5;
+  --c-overlay-scrim: rgba(0, 0, 0, 0.6);
+  --c-success: #1ea64a;
+  --c-warning: #c46a1a;
+  --c-error: #c4321a;
+
+  /* —— pastel 身份色块（视图身份）—— */
+  --c-block-lime: #dceeb1;   /* 学习首页：成长 */
+  --c-block-lilac: #c5b0f4;  /* AI 导师：编排/引导 */
+  --c-block-cream: #f4ecd6;  /* （备用）企业实务 */
+  --c-block-mint: #c8e6cd;   /* 前测/成长报告：测评与成果，首尾呼应 */
+  --c-block-pink: #efd4d4;   /* （备用） */
+  --c-block-coral: #f3c9b6;  /* 通知横幅 */
+  --c-block-navy: #1f1d3d;   /* 沙盘：全站唯一深色沉浸场景 */
+  --c-accent-magenta: #ff3d8b; /* 唯一饱和色：真 AI 实时标记，一屏最多一次 */
+
+  /* —— 数据可视化（pastel 加深版）—— */
+  --c-chart-1: #1f1d3d;
+  --c-chart-2: #7a5cc4;
+  --c-chart-3: #5a8f62;
+  --c-chart-4: #c46a4a;
+  --c-chart-5: #b8548a;
+  --c-chart-6: #8a7a4a;
+
+  /* —— 字体 —— */
+  --font-sans: Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+  /* 字号（pt 语义档）—— 应用刻度 */
+  --fs-display: 48px;
+  --fs-page-title: 28px;
+  --fs-section-title: 20px;
+  --fs-card-title: 16px;
+  --fs-body-lg: 16px;
+  --fs-body: 14px;
+  --fs-body-sm: 13px;
+  --fs-eyebrow: 12px;
+  --fs-caption: 11px;
+
+  /* 字重（只用七档） */
+  --fw-320: 320; --fw-330: 330; --fw-340: 340; --fw-450: 450;
+  --fw-480: 480; --fw-540: 540; --fw-700: 700;
+
+  /* —— 间距（8px 基）—— */
+  --sp-xxs: 4px; --sp-xs: 8px; --sp-sm: 12px; --sp-md: 16px;
+  --sp-lg: 24px; --sp-xl: 32px; --sp-xxl: 48px; --sp-section: 48px;
+
+  /* —— 圆角 —— */
+  --r-xs: 2px; --r-sm: 6px; --r-md: 8px; --r-lg: 16px; --r-xl: 24px;
+  --r-pill: 9999px; --r-full: 9999px;
+
+  /* —— 布局 —— */
+  --nav-height: 56px;
+  --sidebar-width: 220px;
+  --content-max: 1200px;
+}

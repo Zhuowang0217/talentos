@@ -115,7 +115,7 @@ window.TOS_M4 = (function () {
       this.data = {
         company: "启明科技", days, day: 1,
         plan: validPlan, sysRec, suggest, others,
-        courses: Object.fromEntries(COURSE_LIB.map(c => [c.id, { lessons: c.chapters.map(() => ({ d: false, q: false })), finished: false }])),
+        courses: Object.fromEntries(COURSE_LIB.map(c => [c.id, { lessons: c.chapters.map(() => ({ d: false, q: false })), drillDone: false, finished: false }])),
         missions: Object.fromEntries(MISSIONS.map(m => [m.id, false])),
         created: new Date().toLocaleDateString("zh-CN"),
       };
@@ -1170,6 +1170,9 @@ window.TOS_M4 = (function () {
   }
 
   async function sbEvaluate() {
+    if (state.course && pkg.data?.courses[state.course.id]) {
+      pkg.data.courses[state.course.id].drillDone = true; pkg.save();
+    }
     state.stage = "sandbox-report";
     $app().innerHTML = viewSandboxReport();
     try {

@@ -338,7 +338,12 @@ window.TOS_M4 = (function () {
         <div class="sec-tag st-soft">${c.type === "hard" ? "实战任务" : "情景模拟演练"} <span>${c.type === "hard" ? "硬技能检验 · 作业提交" : "评审会 · 多角色对话"}</span></div>
         <div class="report-block">
           ${lessonsDone
-            ? `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">${c.type === "hard" ? (TASKS[c.id] || TASKS.C3).title : "智能客服升级 · 第一期评审会"}</span></div>`
+            ? st.drillDone
+              ? `<div style="display:flex;gap:8px;align-items:center;padding:4px 0">
+                   <div class="chapter-row" style="cursor:pointer;flex:1" data-action="sb-review"><span class="chapter-check" style="background:var(--c-block-mint);border:none">✓</span><span style="flex:1;font-size:13px">查看上次记录与报告</span></div>
+                   <button class="chat-end-btn" data-action="enter-drill">重新模拟</button>
+                 </div>`
+              : `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">${c.type === "hard" ? (TASKS[c.id] || TASKS.C3).title : "智能客服升级 · 第一期评审会"}</span></div>`
             : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成全部微课后解锁</span></div>`}
         </div>
         <div class="sec-tag" style="border-color:var(--c-ink)">再评 <span>${c.type === "soft" ? "对话测评 · 能力对比" : "客观题 · 知识检验"}</span></div>
@@ -538,12 +543,22 @@ window.TOS_M4 = (function () {
     return `
       <div class="learn-page">
         <div class="report-head"><h2 style="font-size:22px;font-weight:var(--fw-700)">能力变化对比</h2></div>
-        <div class="report-block"><div id="pt-radar" style="height:240px"></div></div>
-        <div class="report-block" style="background:var(--c-block-mint);text-align:center;padding:var(--sp-lg)">
-          <span class="mono" style="color:#2e5fe8;font-size:20px;font-weight:700">${preScore ?? "—"}</span>
-          <span style="font-size:16px;margin:0 8px">→</span>
-          <span class="mono" style="color:#e0405a;font-size:24px;font-weight:700">${postScore}</span>
-          ${preScore ? `<span style="font-size:14px;color:${postScore > preScore ? "var(--c-success)" : "var(--c-error)"};margin-left:8px">${postScore > preScore ? "+" : ""}${postScore - preScore}</span>` : ""}
+        <div class="report-block">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <span style="width:50px;font-size:12px;font-weight:700;color:#2e5fe8">前测</span>
+            <div class="heat-track" style="flex:1;height:20px;border-radius:10px">
+              <div style="height:100%;border-radius:10px;background:#2e5fe8;width:${preScore ?? 0}%;transition:width .8s"></div>
+            </div>
+            <span class="mono" style="width:36px;text-align:right;font-size:16px;font-weight:700;color:#2e5fe8">${preScore ?? "—"}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <span style="width:50px;font-size:12px;font-weight:700;color:#e0405a">后测</span>
+            <div class="heat-track" style="flex:1;height:20px;border-radius:10px">
+              <div style="height:100%;border-radius:10px;background:#e0405a;width:${postScore}%;transition:width .8s"></div>
+            </div>
+            <span class="mono" style="width:36px;text-align:right;font-size:16px;font-weight:700;color:#e0405a">${postScore}</span>
+          </div>
+          ${preScore ? `<div style="text-align:center;margin-top:4px"><span style="font-size:14px;color:${postScore > preScore ? "var(--c-success)" : "var(--c-error)"};font-weight:700">${postScore > preScore ? "↑" : "↓"} ${Math.abs(postScore - preScore)} 分</span></div>` : ""}
         </div>
         <div class="report-block">
           <div class="card-title">评估</div>
@@ -791,6 +806,18 @@ window.TOS_M4 = (function () {
           state.stage = "task"; app.innerHTML = viewTask();
         } else {
           state.stage = "sandbox-intro"; app.innerHTML = viewSandboxIntro();
+        }
+        return true;
+      }
+      case "sb-review": {
+        // 回看上次的沙盘对话和报告
+        const lastData = JSON.parse(localStorage.getItem("tos_sb_last_" + phoneKey()) || "null");
+        if (lastData && lastData.msgs?.length) {
+          sb.msgs = lastData.msgs; sb.round = lastData.round || 0; sb.finished = true;
+          sb.eval = lastData.eval || null; sb.sessionId = lastData.sessionId;
+          state.stage = "sandbox-chat"; app.innerHTML = viewSandboxChat();
+        } else {
+          toastEl("暂无历史记录");
         }
         return true;
       }
@@ -1181,6 +1208,12 @@ window.TOS_M4 = (function () {
     } catch (e) {
       sb.eval = { dimensions: [{ code:"CMO-01", name:"沟通表达", level:2, comment:"评估服务暂不可用", suggestion:"请稍后重试" }], overall:"评估生成失败", totalScore:0 };
     }
+    // 保存沙盘数据供回看
+    try {
+      localStorage.setItem("tos_sb_last_" + phoneKey(), JSON.stringify({
+        sessionId: sb.sessionId, msgs: sb.msgs, round: sb.round, eval: sb.eval,
+      }));
+    } catch (e) {}
     $app().innerHTML = viewSandboxReport();
     drawSbRadar();
   }

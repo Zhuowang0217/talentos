@@ -771,7 +771,7 @@ const server = http.createServer(async (req, res) => {
 
     // 软技能：对话测评（聚焦该课程的能力域）
     sess.posttest = { type, courseId, msgs: [], round: 0, maxRounds: 5, finished: false, evidence: [] };
-    const sys = `You are a friendly skill assessor conducting a brief follow-up assessment. The candidate just completed a training course on "${course.cap}". Ask 2-3 targeted questions about this specific skill to assess their current level. Keep it conversational and encouraging. 60 words max per response. Respond in Chinese.\n\nOutput JSON: {"reply":"your question","satisfied":false}`;
+    const sys = `你是一位友好的能力测评师，正在进行一次简短的后续测评。候选人刚完成了「${course.cap}」相关的课程学习和情景演练。请围绕这个能力提 2-3 个有针对性的问题。语气亲切鼓励。每次回复不超过 60 字。必须用中文回复。\n\n输出 JSON：{"reply":"你的提问（中文）","satisfied":false}`;
     const opening = `你好！你刚完成了「${course.cap}」相关的课程学习和情景演练。我想简单聊几个问题，看看你在这个能力上的变化。先说说，你觉得这次培训中最大的收获是什么？`;
     sess.posttest.msgs.push({ role: "agent", name: "测评导师", text: opening });
     sess.posttest.round = 1;
@@ -792,7 +792,7 @@ const server = http.createServer(async (req, res) => {
     if (MODE === "real") {
       try {
         const course = COURSE_NAMES[pt.courseId] || { cap: "沟通表达" };
-        const sys = `You are a skill assessor evaluating "${course.cap}". Ask a follow-up question based on the candidate's response. Keep it focused on this specific competency. 50 words max. Chinese.\nOutput JSON: {"reply":"question","satisfied":bool}`;
+        const sys = `你是一位能力测评师，正在评估「${course.cap}」。基于候选人的回答提一个追问。聚焦这个能力。不超过 50 字。必须用中文。\n输出 JSON：{"reply":"追问（中文）","satisfied":bool}`;
         const hist = pt.msgs.slice(-6).map(m => `[${m.name}] ${m.text}`).join("\n");
         const out = await llmChat([
           { role: "system", content: sys },
@@ -838,7 +838,7 @@ const server = http.createServer(async (req, res) => {
     if (MODE === "real") {
       try {
         const evidence = pt.evidence.join("\n");
-        const sys = `Evaluate the candidate's "${course.cap}" skill based on their responses. Score 0-100. Chinese response.\nOutput JSON: {"score":65,"level":2,"comment":"evaluation","improvement":"suggestion"}`;
+        const sys = `评估候选人的「${course.cap}」能力。基于其回答打分（0-100）。必须用中文。\n输出 JSON：{"score":65,"level":2,"comment":"中文评述","improvement":"中文建议"}`;
         const out = await llmChat([{ role: "system", content: sys }, { role: "user", content: "Candidate responses:\n" + evidence }]);
         const jm = out.replace(/```(?:json)?\n?/g, "").replace(/```/g, "").trim().match(/\{[\s\S]*\}/);
         if (jm) { pt.evaluated = JSON.parse(jm[0]); return json(res, 200, pt.evaluated); }

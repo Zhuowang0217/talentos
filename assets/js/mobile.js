@@ -18,7 +18,7 @@
 
   function route() {
     const h = (location.hash || "#/login").replace("#/", "");
-    return ["login", "success", "no-permission", "chat", "report", "onboard", "station", "list", "course", "mission"].includes(h.split("/")[0]) ? h : "login";
+    return ["login", "success", "no-permission", "chat", "report", "onboard", "station", "list", "course", "mission", "profile"].includes(h.split("/")[0]) ? h : "login";
   }
 
   /* ---------- M3 首测对话与报告 ---------- */
@@ -518,7 +518,7 @@
     const r = route();
     if (r === "chat") return initChat();
     if (r === "report") return loadReport();
-    if (["onboard", "station", "list", "course", "mission"].includes(r.split("/")[0])) {
+    if (["onboard", "station", "list", "course", "mission", "profile"].includes(r.split("/")[0])) {
       if (r.startsWith("list/")) TOS_M4.state.list = r.split("/")[1] || "required";
       TOS_M4.render(r.split("/")[0]);
       return;

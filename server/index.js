@@ -440,17 +440,33 @@ You MUST respond in valid JSON:
 "satisfied" rules: set true ONLY when the candidate has adequately addressed YOUR specific concerns (related to your values and pet peeves). Set false if you still have doubts or want to ask more.`;
 }
 
-function pickAgent(userText, msgs) {
-  if (/技术|实现|接口|架构|性能|研发|开发/.test(userText)) return "dev";
-  if (/业务|需求|客户|价值|上线|商业/.test(userText)) return "biz";
-  if (/测试|质量|边界|异常|bug/.test(userText)) return "qa";
-  const last = msgs.filter(m => m.role !== "user").slice(-1)[0];
-  if (last) {
-    if (last.role === "dev") return Math.random() < 0.5 ? "biz" : "qa";
-    if (last.role === "biz") return Math.random() < 0.5 ? "dev" : "qa";
-    if (last.role === "qa") return Math.random() < 0.5 ? "dev" : "biz";
+function pickAgent(userText, sb) {
+  const ROTATION = ["dev", "biz", "qa"]; // 默认轮转：研发→业务→测试
+
+  // Layer 1: 直接点名（最高优先级）
+  if (/张工|研发负责|技术负责/.test(userText)) return "dev";
+  if (/刘总|业务方|业务负责/.test(userText)) return "biz";
+  if (/陈姐|测试负责|质量负责/.test(userText)) return "qa";
+
+  // Layer 2: 未满意 + 不连续发言
+  const sat = (sb && sb.satisfaction) || {};
+  const unsatisfied = ROTATION.filter(a => !sat[a]);
+  const lastRole = [...(sb ? sb.msgs : [])].reverse().find(m => m.role !== "user" && m.role !== "system")?.role;
+  let pool = unsatisfied.filter(a => a !== lastRole);
+  if (pool.length === 0) pool = unsatisfied.length > 0 ? unsatisfied : ROTATION.filter(a => a !== lastRole);
+  if (pool.length === 0) pool = ROTATION;
+
+  // Layer 3: 按轮转顺序选
+  if (lastRole) {
+    const idx = ROTATION.indexOf(lastRole);
+    if (idx >= 0) {
+      for (let i = 1; i <= ROTATION.length; i++) {
+        const next = ROTATION[(idx + i) % ROTATION.length];
+        if (pool.includes(next)) return next;
+      }
+    }
   }
-  return ["dev", "biz", "qa"][Math.floor(Math.random() * 3)];
+  return pool[0] || "dev";
 }
 
 function pickSecondAgent(first) {
@@ -618,8 +634,8 @@ const server = http.createServer(async (req, res) => {
     }
     sb.round++;
 
-    // 轮转选择下一个发言的 Agent（根据内容简单匹配）
-    const nextAgent = pickAgent(text, sb.msgs);
+    // 三层优先级选择下一个发言 Agent
+    const nextAgent = pickAgent(text, sb);
     let result;
     if (MODE === "real") {
       try { result = await sandboxAgentCall(nextAgent, sb.msgs); }

@@ -327,9 +327,11 @@ window.TOS_M4 = (function () {
         </div>
         <div class="sec-tag st-hard">微课学习 <span>顺序解锁 · 每节配课后练习</span></div>
         <div class="report-block">${lessonList}</div>
-        <div class="sec-tag st-soft">情景模拟演练 <span>评审会 · 多角色对话</span></div>
+        <div class="sec-tag st-soft">${c.type === "hard" ? "实战任务" : "情景模拟演练"} <span>${c.type === "hard" ? "硬技能检验 · 作业提交" : "评审会 · 多角色对话"}</span></div>
         <div class="report-block">
-          ${lessonsDone ? `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">智能客服升级 · 第一期评审会</span></div>` : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成全部微课后解锁</span></div>`}
+          ${lessonsDone
+            ? `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">${c.type === "hard" ? (TASKS[c.id] || TASKS.C3).title : "智能客服升级 · 第一期评审会"}</span></div>`
+            : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成全部微课后解锁</span></div>`}
         </div>
         <div class="sec-tag" style="border-color:var(--c-ink)">再评 <span>课程闭环 · 测学练考</span></div>
         <div class="report-block">
@@ -473,6 +475,7 @@ window.TOS_M4 = (function () {
       if (state.stage === "sandbox-intro") return $app().innerHTML = viewSandboxIntro();
       if (state.stage === "sandbox-chat") return $app().innerHTML = viewSandboxChat();
       if (state.stage === "sandbox-report") return $app().innerHTML = viewSandboxReport();
+      if (state.stage === "task") return $app().innerHTML = viewTask();
       if (state.stage === "drill") return $app().innerHTML = viewDrill();
       if (state.stage === "exam") return $app().innerHTML = viewExam();
       return $app().innerHTML = state.course ? viewCourse() : viewStation();
@@ -532,12 +535,42 @@ window.TOS_M4 = (function () {
       }
       case "back-course": state.stage = "course"; app.innerHTML = viewCourse(); return true;
       case "toggle-plan": planOpen = !planOpen; app.innerHTML = viewList(); return true;
-      case "enter-drill": state.stage = "sandbox-intro"; app.innerHTML = viewSandboxIntro(); return true;
+      case "enter-drill": {
+        const c = state.course;
+        if (c.type === "hard" && TASKS[c.id]) {
+          state.stage = "task"; app.innerHTML = viewTask();
+        } else {
+          state.stage = "sandbox-intro"; app.innerHTML = viewSandboxIntro();
+        }
+        return true;
+      }
       case "sb-start": sbStart(); return true;
       case "sb-send": sbSend(); return true;
       case "sb-toggle-voice": sbSetInputMode("voice"); return true;
       case "sb-toggle-kb": sbSetInputMode("kb"); return true;
       case "sb-brief": sbShowBrief = !sbShowBrief; app.innerHTML = viewSandboxChat(); return true;
+      case "task-start": task.started = true; task.startAt = Date.now(); app.innerHTML = viewTask(); return true;
+      case "task-submit": {
+        task.submitted = true;
+        // Demo：模拟逾期判定（如果超过 24h 算逾期，这里演示按时）
+        task.late = false;
+        const c = state.course;
+        const t = TASKS[c.id] || TASKS.C3;
+        // Demo：AI 评估占位（后续接真实评估）
+        const baseScore = 65 + Math.floor(Math.random() * 20);
+        task.eval = {
+          score: task.late ? Math.round(baseScore * t.penalty) : baseScore,
+          dimensions: [
+            { name: "功能完整性", score: Math.min(100, baseScore + 5), comment: "核心模块均已覆盖，结构清晰" },
+            { name: "代码质量", score: Math.max(40, baseScore - 10), comment: "命名规范，但可进一步提取公共样式" },
+            { name: "加分项完成度", score: Math.floor(baseScore * 0.6), comment: "完成了部分加分项，尚有提升空间" },
+          ],
+          comment: "整体完成度良好。建议后续关注代码可维护性和交互细节打磨。" + (task.late ? "注意：因逾期提交，总分已按" + Math.round((1 - t.penalty) * 100) + "%折算。" : ""),
+        };
+        app.innerHTML = viewTaskResult(t);
+        toastEl("任务评估完成！");
+        return true;
+      }
       case "sb-end": {
         sb.finished = true;
         try { sbApi("/api/sandbox/chat", { sessionId: sb.sessionId, text: "（会议结束）", endNow: true }); } catch(e){}
@@ -728,37 +761,63 @@ window.TOS_M4 = (function () {
     const ev = sb.eval;
     if (!ev) return `<div class="m-center"><p>评估生成中…</p></div>`;
     const dims = ev.dimensions || [];
-    const pct = (lv) => Math.round(((lv - 1) / 3) * 88) + 6;
+    const lvToScore = (lv) => Math.round(((lv - 1) / 3) * 88) + 6;
     return `
       <div class="learn-page">
         <div class="report-head">
           <div class="mono" style="font-size:var(--fs-caption);opacity:.5;letter-spacing:.12em">SANDBOX REPORT</div>
           <h2 style="font-size:22px;font-weight:var(--fw-700)">情景模拟评估</h2>
-          <div class="page-sub">评审会 · ${sb.round} 轮对话</div>
+          <div class="page-sub">评审会 · 软技能四构面</div>
         </div>
         <div class="report-block" style="background:var(--c-block-mint);text-align:center;padding:var(--sp-lg)">
           <div class="mono" style="font-size:28px;font-weight:700">${ev.totalScore || 60}</div>
           <div style="font-size:12px;opacity:.6">总分（100分制）</div>
         </div>
-        ${dims.map(d => `
-        <div class="report-block">
-          <div class="dim-line1">
-            <span class="dim-name">${d.name}</span>
-            <span class="mono">L${d.level}</span>
-            <span class="grade ${d.level >= 3 ? "g-high" : d.level >= 2 ? "g-mid" : "g-low"}">${d.level >= 3 ? "优秀" : d.level >= 2 ? "中等" : "待提升"}</span>
-          </div>
-          <div class="heat-track small" style="width:100%;height:8px;margin:6px 0 6px">
-            <div class="heat-fill ${d.level >= 3 ? "g-high" : d.level >= 2 ? "g-mid" : "g-low"}" style="width:${pct(d.level)}%"></div>
-          </div>
-          <p style="font-size:13px;line-height:1.6">${d.comment}</p>
-          <p style="font-size:12px;opacity:.6;margin-top:4px">💡 ${d.suggestion}</p>
-        </div>`).join("")}
+        <div class="report-block"><div id="sb-radar" style="height:240px"></div></div>
+        ${dims.map(d => {
+          const score = lvToScore(d.level);
+          const grade = score < 30 ? { t: "欠佳", cls: "g-low" } : score < 70 ? { t: "中等", cls: "g-mid" } : { t: "优秀", cls: "g-high" };
+          return `
+          <div class="report-block">
+            <div class="dim-line1">
+              <span class="dim-name">${d.name}</span>
+              <span class="mono">${score}分</span>
+              <span class="grade ${grade.cls}">${grade.t}</span>
+            </div>
+            <div class="heat-track small" style="width:100%;height:8px;margin:6px 0 6px">
+              <div class="heat-fill ${grade.cls}" style="width:${score}%"></div>
+            </div>
+            <p style="font-size:13px;line-height:1.6">${d.comment}</p>
+            <p style="font-size:12px;opacity:.6;margin-top:4px">💡 ${d.suggestion}</p>
+          </div>`;
+        }).join("")}
         <div class="report-block profile-card">
           <div class="card-title">总评</div>
           <p style="font-size:13px;line-height:1.7">${ev.overall || ""}</p>
         </div>
         <button class="quiz-start" data-action="back-course">← 返回课程</button>
       </div>`;
+  }
+
+  function drawSbRadar() {
+    const el = document.getElementById("sb-radar");
+    if (!el || !window.echarts || !sb.eval) return;
+    const dims = sb.eval.dimensions || [];
+    const lvToScore = (lv) => Math.round(((lv - 1) / 3) * 88) + 6;
+    const chart = echarts.init(el);
+    chart.setOption({
+      radar: {
+        indicator: dims.map(d => ({ name: d.name, max: 100 })),
+        radius: "60%",
+        axisName: { color: "#000", fontSize: 11 },
+        splitArea: { areaStyle: { color: ["#fff", "#f7f7f5"] } },
+        splitLine: { lineStyle: { color: "#e6e6e6" } },
+        axisLine: { lineStyle: { color: "#e6e6e6" } },
+      },
+      tooltip: { trigger: "item" },
+      series: [{ type: "radar", data: [{ value: dims.map(d => lvToScore(d.level)), name: "得分",
+        areaStyle: { color: "rgba(122,92,196,.25)" }, lineStyle: { color: "#7a5cc4" }, itemStyle: { color: "#7a5cc4" } }] }],
+    });
   }
 
   async function sbStart() {
@@ -817,7 +876,105 @@ window.TOS_M4 = (function () {
       sb.eval = { dimensions: [{ code:"CMO-01", name:"沟通表达", level:2, comment:"评估服务暂不可用", suggestion:"请稍后重试" }], overall:"评估生成失败", totalScore:0 };
     }
     $app().innerHTML = viewSandboxReport();
+    drawSbRadar();
   }
 
-  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate, sbSetInputMode, sbHoldStart, sbHoldEnd };
+  // ---------- 硬技能任务系统 ----------
+  const TASKS = {
+    C3: {
+      title: "Vibe Coding：搭建管理后台原型",
+      desc: "使用 HTML/CSS/JS（零依赖）快速搭建一个企业管理后台的静态原型页面。考察你对 AI 产品经理岗位所需的技术理解和产品拆解能力。",
+      requirements: [
+        "包含「企业账号管理」模块：列表 + 搜索 + 状态标签",
+        "包含「订单管理」模块：表格 + 筛选 + 分页占位",
+        "整体为侧边栏 + 主内容区布局，风格统一",
+      ],
+      bonus: [
+        "加入数据统计卡片（今日订单/活跃用户/营收等）",
+        "实现简单的搜索或筛选交互（纯前端即可）",
+        "响应式适配（960px 以下折叠侧栏）",
+      ],
+      deliverable: "一个 .html 文件（内联 CSS/JS，不依赖外部库）",
+      deadline: "24 小时内提交",
+      penalty: 0.8,
+    },
+    C4: {
+      title: "评测集设计实战",
+      desc: "为「智能客服」功能设计一套评测集，并撰写设计说明。考察你对 AI 功能验收方法论的理解。",
+      requirements: [
+        "20 条评测用例（含正常/边界/异常场景）",
+        "标注每条用例考察的能力维度",
+        "说明覆盖逻辑（为什么这 20 条能代表整体质量）",
+      ],
+      bonus: [
+        "附带 5 个 badcase 示例及归因分析",
+        "设计一套简单的评分标准（0-2 分制）",
+      ],
+      deliverable: "一份 .md 或 .xlsx 文件",
+      deadline: "24 小时内提交",
+      penalty: 0.8,
+    },
+  };
+
+  const task = { started: false, startAt: null, submitted: false, eval: null, late: false };
+
+  function viewTask() {
+    const c = state.course;
+    const t = TASKS[c.id] || TASKS.C3;
+    if (task.eval) return viewTaskResult(t);
+    return `
+      <div class="learn-page">
+        <button class="m-btn-back" style="margin:0 0 var(--sp-md)" data-action="back-course">← 返回课程</button>
+        <div class="sec-tag st-hard">实战任务 <span>硬技能检验</span></div>
+        <div class="report-block">
+          <div class="card-title">${t.title}</div>
+          <p style="font-size:13px;opacity:.75;line-height:1.7">${t.desc}</p>
+        </div>
+        <div class="report-block">
+          <div class="card-title">任务要求</div>
+          ${t.requirements.map((r, i) => `<div class="chapter-row"><span class="chapter-check">${i + 1}</span><span style="font-size:13px">${r}</span></div>`).join("")}
+        </div>
+        <div class="report-block">
+          <div class="card-title">加分项 <span class="mono" style="font-size:10px;font-weight:400;color:var(--c-success)">选做</span></div>
+          ${t.bonus.map((b, i) => `<div class="chapter-row"><span class="chapter-check" style="background:var(--c-block-mint);border:none;color:var(--c-ink)">+</span><span style="font-size:13px">${b}</span></div>`).join("")}
+        </div>
+        <div class="report-block" style="background:var(--c-block-cream)">
+          <div class="mono" style="font-size:12px;line-height:1.8">
+            📦 交付物：${t.deliverable}<br>
+            ⏰ 截止：${t.deadline}<br>
+            ⚠️ 逾期提交按 ${Math.round((1 - t.penalty) * 100)}% 计分
+          </div>
+        </div>
+        ${!task.started
+          ? `<button class="quiz-start" data-action="task-start">接受任务，开始 →</button>`
+          : `<button class="quiz-start" data-action="task-submit" style="background:var(--c-success)">提交作业 ✓</button>
+             <p class="mono" style="font-size:10px;opacity:.4;text-align:center;margin-top:8px">上传 .html / .md / .xlsx 文件（演示占位）</p>`
+        }
+      </div>`;
+  }
+
+  function viewTaskResult(t) {
+    const ev = task.eval;
+    return `
+      <div class="learn-page">
+        <button class="m-btn-back" style="margin:0 0 var(--sp-md)" data-action="back-course">← 返回课程</button>
+        <div class="sec-tag st-hard">任务评估</div>
+        <div class="report-block" style="background:${task.late ? "var(--c-block-coral)" : "var(--c-block-mint)"};text-align:center;padding:var(--sp-lg)">
+          <div class="mono" style="font-size:28px;font-weight:700">${ev.score}</div>
+          <div style="font-size:12px;opacity:.6">${task.late ? "逾期提交（已按" + Math.round((1 - t.penalty) * 100) + "%折算）" : "按时提交"}</div>
+        </div>
+        ${ev.dimensions ? ev.dimensions.map(d => `
+        <div class="report-block">
+          <div class="dim-line1"><span class="dim-name">${d.name}</span><span class="mono">${d.score}分</span></div>
+          <p style="font-size:13px;line-height:1.6">${d.comment}</p>
+        </div>`).join("") : ""}
+        <div class="report-block profile-card">
+          <div class="card-title">总评</div>
+          <p style="font-size:13px;line-height:1.7">${ev.comment || ""}</p>
+        </div>
+        <button class="quiz-start" data-action="back-course">← 返回课程</button>
+      </div>`;
+  }
+
+  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate, sbSetInputMode, sbHoldStart, sbHoldEnd, task, TASKS, viewTask };
 })();

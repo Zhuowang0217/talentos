@@ -468,13 +468,12 @@ function sandboxFallback(agent) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function sandboxAgentCall(agentKey, msgs) {
+async function sandboxAgentCall(agentKey, msgs, taskOverride) {
   const persona = PERSONAS[SANDBOX_AGENTS[agentKey].key] || PERSONAS.dev_zhang;
-  const prdSummary = SANDBOX_SCENARIO.prd.sections.slice(0, 3).map(s => s.h + ": " + s.c.slice(0, 50)).join("; ");
-  const taskCtx = {
+  const taskCtx = taskOverride || {
     title: SANDBOX_SCENARIO.title,
     goal: SANDBOX_SCENARIO.goal,
-    prdSummary: prdSummary || "RAG+knowledge base, 6 weeks dev + 2 weeks test",
+    prdSummary: SANDBOX_SCENARIO.prd.sections.slice(0, 3).map(s => s.h + ": " + s.c.slice(0, 50)).join("; "),
   };
   const systemPrompt = buildPersonaPrompt(persona, taskCtx);
   const recent = msgs.slice(-8);
@@ -483,15 +482,22 @@ async function sandboxAgentCall(agentKey, msgs) {
     { role: "system", content: systemPrompt },
     { role: "user", content: "Meeting dialogue:\n" + history + "\n\nRespond as " + persona.identity.name + " in JSON format." },
   ]);
-  // Parse structured JSON
-  const jm = out.match(/\{[\s\S]*\}/);
+  // Strip markdown fences then parse JSON
+  let clean = out.replace(/```(?:json)?\n?/g, "").replace(/```/g, "").trim();
+  const jm = clean.match(/\{[\s\S]*\}/);
   if (jm) {
     try {
       const p = JSON.parse(jm[0]);
       return { reply: (p.reply || "").trim().slice(0, 150), satisfied: p.satisfied === true };
-    } catch (e) { /* fall through */ }
+    } catch (e) {
+      // JSON malformed, try to extract reply field
+      const rm = clean.match(/"reply"\s*:\s*"([^"]+)"/);
+      if (rm) return { reply: rm[1].slice(0, 150), satisfied: false };
+    }
   }
-  return { reply: out.trim().slice(0, 150), satisfied: false };
+  // Last resort: strip all JSON-looking syntax, keep plain text
+  const plain = clean.replace(/[{}\[\]"]/g, "").replace(/^json/i, "").trim();
+  return { reply: plain.slice(0, 150) || "（沉默）", satisfied: false };
 }
 
 async function sandboxEvaluate(msgs) {

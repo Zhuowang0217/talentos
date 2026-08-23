@@ -493,7 +493,12 @@ const server = http.createServer(async (req, res) => {
     if (sb.finished) return json(res, 200, { msgs: sb.msgs, round: sb.round, finished: true });
 
     sb.msgs.push({ role: "user", name: "你", text });
-    if (endNow || sb.round >= sb.maxRounds) { sb.finished = true; return json(res, 200, { msgs: sb.msgs, round: sb.round, finished: true }); }
+    if (endNow) { sb.finished = true; return json(res, 200, { msgs: sb.msgs, round: sb.round, finished: true, suggestReport: true }); }
+    if (sb.round >= sb.maxRounds) {
+      sb.finished = true;
+      sb.msgs.push({ role: "system", name: "", text: "本次评审模拟已充分。后续可以再聊，建议先查看你的评估报告。" });
+      return json(res, 200, { msgs: sb.msgs, round: sb.round, finished: true, suggestReport: true });
+    }
     sb.round++;
 
     // 轮转选择下一个发言的 Agent（根据内容简单匹配）

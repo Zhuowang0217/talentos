@@ -601,6 +601,7 @@ window.TOS_M4 = (function () {
 
   function sbBubble(m) {
     if (m.role === "user") return `<div class="chat-msg user"><div class="chat-bubble m">${m.text}</div></div>`;
+    if (m.role === "system") return `<div style="text-align:center;padding:8px 16px"><span class="mono" style="font-size:11px;opacity:.5;background:var(--c-surface-soft);border-radius:var(--r-pill);padding:4px 12px">${m.text}</span></div>`;
     const st = AGENT_STYLE[m.role] || {};
     return `<div class="chat-msg agent"><span class="agent-chip" style="background:${st.c || "#ddd"}">${st.l || m.role}</span><div class="chat-bubble a"><b style="font-size:11px">${m.name}</b><br>${m.text}</div></div>`;
   }
@@ -667,10 +668,9 @@ window.TOS_M4 = (function () {
         <div class="chat-head">
           <button class="chat-end-btn" data-action="sb-brief" style="margin-right:6px">${sbShowBrief ? "收起 ▲" : "任务 📋"}</button>
           <div style="flex:1">
-            <div style="font-weight:var(--fw-700)">评审会</div>
-            <div class="mono" style="font-size:var(--fs-caption);opacity:.6">轮次 ${sb.round}/${sb.maxRounds} ${done ? "· 已结束" : ""}</div>
+            <div style="font-weight:var(--fw-700)">评审会 · 情景模拟</div>
           </div>
-          ${!done ? '<button class="chat-end-btn" data-action="sb-end">结束</button>' : '<button class="chat-end-btn" data-action="sb-evaluate">报告</button>'}
+          ${!done ? '<button class="chat-end-btn" data-action="sb-end">结束</button>' : '<button class="chat-end-btn" data-action="sb-evaluate">查看报告</button>'}
         </div>
         ${brief}
         <div class="chat-body" id="sb-body">${sb.msgs.map(sbBubble).join("")}</div>

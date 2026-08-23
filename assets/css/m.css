@@ -517,7 +517,7 @@ body {
   background: var(--c-primary); color: #fff;
   font-size: 11px; font-weight: var(--fw-700);
   border-radius: var(--r-sm); padding: 3px 10px;
-  pointer-events: none;
+  cursor: pointer; z-index: 5;
 }
 .you-tag::after {
   content: ""; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);

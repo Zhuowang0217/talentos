@@ -409,24 +409,39 @@ const SANDBOX_AGENTS = {
   qa:  { name: PERSONAS.qa_chen.identity.name + "（" + PERSONAS.qa_chen.identity.role + "）", label: PERSONAS.qa_chen.label, color: PERSONAS.qa_chen.color, key: "qa_chen" },
 };
 
-/* ============ 任务上下文（外挂参数，可按场景/难度/候选人动态配置） ============ */
-const TASK_CONTEXT = {
-  scenario: "product_review",
-  title: "智能客服升级 · 第一期评审会",
-  difficulty: 5,
-  difficultyNote: "候选人需要在多方压力下保持结构化沟通，同时应对技术和业务的双重挑战",
-  candidate: {
-    level: "junior",
-    background: "应届生，有一定AI产品理论基础，缺乏真实项目经验",
-    strengths: ["学习意愿强", "对AI技术有基础认知"],
-    focusAreas: ["跨职能协作", "抗压与坚韧", "结构化思维"],
-  },
-  sessionGoal: "在高压评审场景下观察并锻炼候选人的多方沟通、优先级判断与抗压能力",
-  documents: {
-    prdSummary: "智能客服升级第一期：RAG+知识库覆盖TOP100高频问题，6周开发+2周测试，预期效率提升30%。复杂问题转人工兜底。",
-    techConstraints: "不微调模型，使用公司统一GLM-4服务，置信度低于阈值自动转人工。复用现有微服务框架。",
-  },
-};
+/* ============ 任务上下文（外挂参数，难度与测评结果挂钩） ============ */
+function buildTaskContext(candidateScore) {
+  // 难度分级：基于测评分数（百分位 0-100）
+  // <20 → 一级（最易）| 20-40 → 二级 | 40-60 → 三级 | 60-100 → 四级（最难）
+  let difficulty, difficultyNote;
+  const s = candidateScore ?? 30; // 默认30（未做测评时取中低值）
+  if (s < 20) { difficulty = 1; difficultyNote = "候选人基础较弱，各方以引导为主，适当降低挑战性"; }
+  else if (s < 40) { difficulty = 2; difficultyNote = "候选人有一定基础，正常难度，适度施压"; }
+  else if (s < 60) { difficulty = 3; difficultyNote = "候选人基础扎实，增加追问深度和跨域挑战"; }
+  else { difficulty = 4; difficultyNote = "候选人能力较强，高强度施压，模拟真实高压评审"; }
+
+  return {
+    scenario: "product_review",
+    title: "智能客服升级 · 第一期评审会",
+    difficulty,
+    difficultyNote,
+    candidate: {
+      level: s < 40 ? "junior" : s < 70 ? "mid" : "senior",
+      background: "有一定AI产品基础，缺乏真实项目经验",
+      strengths: ["学习意愿强"],
+      focusAreas: ["跨职能协作", "抗压与坚韧", "结构化思维"],
+      assessmentScore: s,
+    },
+    sessionGoal: "在评审场景下观察并锻炼候选人的多方沟通、优先级判断与抗压能力",
+    documents: {
+      prdSummary: "智能客服升级第一期：RAG+知识库覆盖TOP100高频问题，6周开发+2周测试，预期效率提升30%。",
+      techConstraints: "不微调模型，使用GLM-4服务，置信度低于阈值自动转人工。",
+    },
+  };
+}
+
+// 默认任务上下文（兼容旧调用）
+const TASK_CONTEXT = buildTaskContext(30);
 
 /* ============ 提示词模板引擎（人格 + 任务上下文 → 系统提示词） ============ */
 function buildPersonaPrompt(persona, taskCtx) {
@@ -636,10 +651,11 @@ const server = http.createServer(async (req, res) => {
 
   /* ============ 情景模拟演练（多角色 Agent 评审会） ============ */
   if (url.pathname === "/api/sandbox/start" && req.method === "POST") {
-    const { sessionId } = await readBody(req);
+    const { sessionId, candidateScore } = await readBody(req);
     if (!sessions.has(sessionId)) sessions.set(sessionId, { evidence: [] });
     const sb = sessions.get(sessionId);
-    sb.sandbox = { msgs: [], round: 0, maxRounds: 10, finished: false };
+    sb.sandbox = { msgs: [], round: 0, maxRounds: 10, finished: false, satisfaction: {} };
+    sb.taskContext = buildTaskContext(candidateScore);
     const opening = "好的，人都到齐了，我们开始评审吧。你先介绍一下这个方案的核心内容。";
     sb.sandbox.msgs.push({ role: "dev", name: SANDBOX_AGENTS.dev.name, text: opening });
     sb.sandbox.round = 1;
@@ -666,7 +682,7 @@ const server = http.createServer(async (req, res) => {
     const nextAgent = pickAgent(text, sb);
     let result;
     if (MODE === "real") {
-      try { result = await sandboxAgentCall(nextAgent, sb.msgs); }
+      try { result = await sandboxAgentCall(nextAgent, sb.msgs, session.taskContext); }
       catch (e) { result = { reply: sandboxFallback(nextAgent), satisfied: false }; }
     } else {
       result = { reply: sandboxFallback(nextAgent), satisfied: Math.random() < 0.2 };

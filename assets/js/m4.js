@@ -322,8 +322,16 @@ window.TOS_M4 = (function () {
         </div>
         <div class="report-block" style="margin-top:var(--sp-md)">
           <div class="card-title">${c.name}</div>
-          <p style="font-size:13px;opacity:.75;line-height:1.6">${c.goal}<br>
-          <span class="mono" style="font-size:11px">关联能力：${c.cap} · ${c.type === "soft" ? "软技能" : "硬技能"} · ${c.chapters.length} 节微课</span></p>
+          <p style="font-size:13px;opacity:.75;line-height:1.6">${c.goal}</p>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <span class="grade ${c.type === "soft" ? "g-high" : "g-mid"}">${c.type === "soft" ? "软技能提升" : "硬技能实战"}</span>
+            <span class="mono" style="font-size:11px;opacity:.5;align-self:center">${c.cap} · ${c.chapters.length} 节微课</span>
+          </div>
+          <p style="font-size:12px;opacity:.55;margin-top:6px;line-height:1.5">
+            ${c.type === "soft"
+              ? "训练方式：微课学习 → 情景模拟演练（多角色评审会）→ 再评"
+              : "训练方式：微课学习 → 实战任务（做作品+提交）→ 再评"}
+          </p>
         </div>
         <div class="sec-tag st-hard">微课学习 <span>顺序解锁 · 每节配课后练习</span></div>
         <div class="report-block">${lessonList}</div>
@@ -822,8 +830,21 @@ window.TOS_M4 = (function () {
 
   async function sbStart() {
     sb.sessionId = "sb_" + Date.now().toString(36);
+    // 从初聊报告取候选人分数（用于难度分级）
+    let candidateScore = 30;
     try {
-      const d = await sbApi("/api/sandbox/start", { sessionId: sb.sessionId });
+      const ph = phoneKey();
+      const chat = JSON.parse(localStorage.getItem("tos_assess_" + ph) || "{}");
+      const rep = JSON.parse(localStorage.getItem("tos_report_" + (chat.sessionId || "")) || "null");
+      if (rep && rep.soft) {
+        const scores = rep.soft.map(d => (d.scoreRange[0] + d.scoreRange[1]) / 2);
+        const raw = scores.reduce((a, b) => a + b, 0) / Math.max(1, scores.length);
+        // Level → 百分位（简化：L1=15, L2=35, L3=60, L4=85）
+        candidateScore = Math.round(Math.max(5, Math.min(95, ((raw - 1) / 3) * 80 + 10)));
+      }
+    } catch (e) {}
+    try {
+      const d = await sbApi("/api/sandbox/start", { sessionId: sb.sessionId, candidateScore });
       sb.scenario = d.scenario; sb.msgs = d.msgs || []; sb.round = d.round || 1; sb.maxRounds = d.maxRounds || 10;
     } catch (e) {
       sb.msgs = [{ role: "dev", name: "张工（研发负责人）", text: "好的，我们开始评审吧。你先介绍一下方案。" }];

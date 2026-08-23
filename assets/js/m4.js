@@ -535,6 +535,8 @@ window.TOS_M4 = (function () {
       case "enter-drill": state.stage = "sandbox-intro"; app.innerHTML = viewSandboxIntro(); return true;
       case "sb-start": sbStart(); return true;
       case "sb-send": sbSend(); return true;
+      case "sb-toggle-voice": sbSetInputMode("voice"); return true;
+      case "sb-toggle-kb": sbSetInputMode("kb"); return true;
       case "sb-end": {
         sb.finished = true;
         try { sbApi("/api/sandbox/chat", { sessionId: sb.sessionId, text: "（会议结束）", endNow: true }); } catch(e){}
@@ -598,13 +600,16 @@ window.TOS_M4 = (function () {
         </div>
         <div class="report-block">
           <div class="card-title">参会人员</div>
-          ${Object.values(AGENT_STYLE).map(a => `<div class="chapter-row"><span class="chapter-check" style="background:${a.c};border:none;width:10px;height:10px;border-radius:50%"></span><span style="font-size:13px">${a.l}方</span></div>`).join("")}
+          <div class="chapter-row"><span class="chapter-check" style="background:#c5b0f4;border:none;width:10px;height:10px;border-radius:50%"></span><div style="flex:1"><b style="font-size:13px">张工</b> <span class="mono" style="font-size:10px;opacity:.5">研发负责人</span><br><span style="font-size:11px;opacity:.6">技术功底深厚，对细节要求极高。沟通直接，不会拐弯抹角，但提出的质疑往往切中要害。</span></div></div>
+          <div class="chapter-row"><span class="chapter-check" style="background:#f3c9b6;border:none;width:10px;height:10px;border-radius:50%"></span><div style="flex:1"><b style="font-size:13px">刘总</b> <span class="mono" style="font-size:10px;opacity:.5">业务方负责人</span><br><span style="font-size:11px;opacity:.6">思维活跃，经常提出超范围的设想。对技术限制不太了解，习惯用商业价值来推动需求。</span></div></div>
+          <div class="chapter-row"><span class="chapter-check" style="background:#c8e6cd;border:none;width:10px;height:10px;border-radius:50%"></span><div style="flex:1"><b style="font-size:13px">陈姐</b> <span class="mono" style="font-size:10px;opacity:.5">测试负责人</span><br><span style="font-size:11px;opacity:.6">会上话不多，但观察细致。关注边界条件和用户体验，会后可能会单独来找你聊测试的顾虑。</span></div></div>
         </div>
         <p class="mono" style="font-size:10px;opacity:.4;text-align:center;margin:8px 0">对话限 ${sb.maxRounds} 轮 · Demo 阶段</p>
         <button class="quiz-start" data-action="sb-start">开始模拟 →</button>
       </div>`;
   }
 
+  let sbVoiceMode = false;
   function viewSandboxChat() {
     const done = sb.finished || sb.round >= sb.maxRounds;
     return `
@@ -616,17 +621,57 @@ window.TOS_M4 = (function () {
           </div>
           ${!done ? '<button class="chat-end-btn" data-action="sb-end">结束模拟</button>' : '<button class="chat-end-btn" data-action="sb-evaluate">查看报告</button>'}
         </div>
+        <div class="demo-note">Demo 阶段：Agent 回复由 AI 生成，可能有延迟。</div>
         <div class="chat-body" id="sb-body">${sb.msgs.map(sbBubble).join("")}</div>
         ${done ? `
         <div style="padding:var(--sp-md);border-top:1px solid var(--c-hairline);background:var(--c-canvas)">
           <button data-action="sb-evaluate" style="width:100%;height:48px;border:none;border-radius:var(--r-pill);background:var(--c-primary);color:#fff;font-size:16px;font-family:var(--font-sans);cursor:pointer">查看评估报告 →</button>
         </div>` : `
-        <div class="chat-input-bar">
-          <input class="chat-input" id="sb-input" placeholder="你的回应…" maxlength="300">
-          <button class="chat-send" data-action="sb-send">发送</button>
+        <div class="chat-input-bar" id="sb-input-bar">
+          <div class="kb-mode" id="sb-kb">
+            <button class="ib-icon" data-action="sb-toggle-voice" title="语音输入">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </button>
+            <input class="chat-input" id="sb-input" placeholder="你的回应…" maxlength="300">
+            <button class="chat-send" data-action="sb-send">发送</button>
+          </div>
+          <div class="voice-mode" id="sb-vm" style="display:none">
+            <button class="ib-icon" data-action="sb-toggle-kb" title="键盘输入">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.01"/><line x1="10" y1="10" x2="10" y2="10.01"/><line x1="14" y1="10" x2="14" y2="10.01"/><line x1="18" y1="10" x2="18" y2="10.01"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+            </button>
+            <div class="hold-to-talk" id="sb-hold">按住说话</div>
+          </div>
         </div>`}
       </div>`;
   }
+
+  function sbSetInputMode(mode) {
+    const kb = document.getElementById("sb-kb"), vm = document.getElementById("sb-vm");
+    if (!kb || !vm) return;
+    kb.style.display = mode === "kb" ? "flex" : "none";
+    vm.style.display = mode === "voice" ? "flex" : "none";
+    sbVoiceMode = mode === "voice";
+  }
+
+  let sbRec = null, sbHolding = false;
+  function sbHoldStart() {
+    if (sbHolding) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { if (window.__tosToast) window.__tosToast("当前浏览器不支持语音识别"); sbSetInputMode("kb"); return; }
+    const btn = document.getElementById("sb-hold");
+    try {
+      sbRec = new SR(); sbRec.lang = "zh-CN"; sbRec.interimResults = true; sbRec.continuous = true;
+      sbRec.onresult = (e) => {
+        let t = ""; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        const inp = document.getElementById("sb-input"); if (inp) inp.value = t;
+      };
+      sbRec.onend = () => { sbHolding = false; if (btn) { btn.classList.remove("rec"); btn.textContent = "按住说话"; } sbSetInputMode("kb"); };
+      sbRec.onerror = () => { sbHolding = false; if (btn) { btn.classList.remove("rec"); btn.textContent = "按住说话"; } };
+      sbRec.start(); sbHolding = true;
+      if (btn) { btn.classList.add("rec"); btn.textContent = "松开结束"; }
+    } catch (e) { sbSetInputMode("kb"); }
+  }
+  function sbHoldEnd() { if (sbHolding && sbRec) { try { sbRec.stop(); } catch(e){} } }
 
   function viewSandboxReport() {
     const ev = sb.eval;
@@ -723,5 +768,5 @@ window.TOS_M4 = (function () {
     $app().innerHTML = viewSandboxReport();
   }
 
-  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate };
+  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate, sbSetInputMode, sbHoldStart, sbHoldEnd };
 })();

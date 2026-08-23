@@ -618,12 +618,24 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.target && e.target.id === "chat-input") { e.preventDefault(); sendMsg(); }
     });
-    // 按住说话：按下开始录音，松手结束
+    // 按住说话：按下开始录音，松手结束（初聊 + 沙盘两处）
     document.addEventListener("pointerdown", (e) => {
       if (e.target.closest && e.target.closest("#hold-talk")) holdTalkStart();
+      if (e.target.closest && e.target.closest("#sb-hold") && window.TOS_M4) TOS_M4.sbHoldStart();
     });
-    document.addEventListener("pointerup", () => holdTalkEnd());
-    document.addEventListener("pointercancel", () => holdTalkEnd());
+    document.addEventListener("pointerup", () => { holdTalkEnd(); if (window.TOS_M4) TOS_M4.sbHoldEnd(); });
+    document.addEventListener("pointercancel", () => { holdTalkEnd(); if (window.TOS_M4) TOS_M4.sbHoldEnd(); });
+    // 沙盘输入框回车发送
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target && e.target.id === "sb-input") { e.preventDefault(); if (window.TOS_M4) TOS_M4.sbSend(); }
+    });
+    // 点击沙盘对话区恢复键盘
+    document.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest("#sb-body") && !e.target.closest("[data-action]") && window.TOS_M4) {
+        const vm = document.getElementById("sb-vm");
+        if (vm && vm.style.display !== "none") window.TOS_M4.sbSetInputMode("kb");
+      }
+    });
   });
 
   /* ---------- 手机框等比缩放（PC 预览模式）----------

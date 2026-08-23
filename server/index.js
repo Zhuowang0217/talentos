@@ -297,6 +297,117 @@ async function realReport(session) {
   }
 }
 
+/* ============ 情景模拟演练：场景与角色 ============ */
+const SANDBOX_SCENARIO = {
+  title: "智能客服升级 · 第一期评审会",
+  background: "你是启明科技的AI产品经理，负责「智能客服升级」项目。今天你需要主持评审会，向研发、业务、测试三方介绍第一期方案并获得认可。",
+  goal: "顺利完成评审：让各方理解方案范围、回应关切、达成共识并确定上线时间。",
+  prd: {
+    scope: "覆盖高频TOP 100问题自动回复，复杂问题转人工",
+    tech: "RAG + 内部知识库，不微调模型",
+    timeline: "6周开发 + 2周测试",
+    metrics: "客服效率提升30%，用户满意度提升15%",
+  },
+  agents: ["dev", "biz", "qa"],
+};
+
+const SANDBOX_AGENTS = {
+  dev: {
+    name: "张工（研发负责人）",
+    label: "研发",
+    color: "#c5b0f4",
+    prompt: "你是一场AI产品评审会中的研发负责人张工。你非常仔细，对技术细节要求极高，但沟通方式比较直接甚至生硬。你会质疑需求的可行性，关注技术债务和实现成本。你不善于寒暄但专业能力很强。你的发言通常简短、直接、有技术含量。控制在60字以内。当前议题是评审一个智能客服升级方案（RAG+知识库，6周开发+2周测试）。",
+  },
+  biz: {
+    name: "刘总（业务方）",
+    label: "业务",
+    color: "#f3c9b6",
+    prompt: "你是一场AI产品评审会中的业务方负责人刘总。你思维天马行空，经常提出不切实际的额外需求。你对技术限制不太了解，总希望功能越多越好、上线越快越好。你会用商业价值来施压。你的发言热情但缺乏技术理解。控制在60字以内。当前议题是评审一个智能客服升级方案。",
+  },
+  qa: {
+    name: "陈姐（测试负责人）",
+    label: "测试",
+    color: "#c8e6cd",
+    prompt: "你是一场AI产品评审会中的测试负责人陈姐。你在评审会上比较沉默，不会当场提出太多反对意见。但你内心有很多疑虑，偶尔会委婉地提出测试相关的关切。你关注边界条件、异常处理和用户体验。你的发言简短、温和但切中要害。控制在60字以内。当前议题是评审一个智能客服升级方案。",
+  },
+};
+
+function pickAgent(userText, msgs) {
+  if (/技术|实现|接口|架构|性能|研发|开发/.test(userText)) return "dev";
+  if (/业务|需求|客户|价值|上线|商业/.test(userText)) return "biz";
+  if (/测试|质量|边界|异常|bug/.test(userText)) return "qa";
+  const last = msgs.filter(m => m.role !== "user").slice(-1)[0];
+  if (last) {
+    if (last.role === "dev") return Math.random() < 0.5 ? "biz" : "qa";
+    if (last.role === "biz") return Math.random() < 0.5 ? "dev" : "qa";
+    if (last.role === "qa") return Math.random() < 0.5 ? "dev" : "biz";
+  }
+  return ["dev", "biz", "qa"][Math.floor(Math.random() * 3)];
+}
+
+function pickSecondAgent(first) {
+  const others = ["dev", "biz", "qa"].filter(a => a !== first);
+  return others[Math.floor(Math.random() * others.length)];
+}
+
+function sandboxFallback(agent) {
+  const fallbacks = {
+    dev: ["这个方案技术上有什么问题吗？我需要看到具体的接口设计。", "6周太紧了，你们考虑过知识库的更新维护成本吗？", "RAG的检索精度能做到多少？如果答错了谁负责？", "这个和现有系统的集成方案呢？我需要详细的技术方案。"],
+    biz: ["能不能加上多语言支持？我们的海外客户也在增长。", "6周太久了，能不能4周上线？市场不等人啊。", "30%的效率提升太保守了，我期望至少50%。", "除了客服，能不能顺便做个销售推荐功能？"],
+    qa: ["那个...我想问一下，如果知识库里没有答案怎么办？", "边界条件考虑了吗？比如用户输入无关内容的情况。", "测试环境的数据够吗？我们需要真实场景的数据来验证。", "用户体验方面，转人工的等待时间有没有上限？"],
+  };
+  const arr = fallbacks[agent] || fallbacks.dev;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+async function sandboxAgentCall(agent, msgs) {
+  const history = msgs.slice(-12).map(m => `${m.name}: ${m.text}`).join("\n");
+  const out = await llmChat([
+    { role: "system", content: SANDBOX_AGENTS[agent].prompt + "\n\n对话历史：\n" + history + "\n\n请你以" + SANDBOX_AGENTS[agent].name + "的身份回复（60字以内，口语化）。只输出角色台词，不要任何前缀。" },
+  ]);
+  return out.trim().slice(0, 120);
+}
+
+async function sandboxEvaluate(msgs) {
+  const userMsgs = msgs.filter(m => m.role === "user").map(m => m.text).join("\n");
+  const allMsgs = msgs.map(m => `[${m.name}] ${m.text}`).join("\n");
+  const prompt = `你是一个能力评估系统。以下是候选人在AI产品评审会情景模拟中的完整对话记录。请从四个维度评估他的软技能表现：
+
+1. 沟通表达（CMO-01）：能否清晰传达方案、回应质疑
+2. 结构化思维（CMO-02）：回答是否有条理、有优先级
+3. 跨职能协作（CMO-03）：能否平衡各方关切、推动共识
+4. 抗压与坚韧（CMO-09）：面对挑战和质疑时的应对
+
+对话记录：
+${allMsgs}
+
+严格输出 JSON：
+{"dimensions":[{"code":"CMO-01","name":"沟通表达","level":2,"comment":"一句评述（落到具体行为）","suggestion":"一句建议或鼓励"},{"code":"CMO-02","name":"结构化思维","level":2,"comment":"...","suggestion":"..."},{"code":"CMO-03","name":"跨职能协作","level":2,"comment":"...","suggestion":"..."},{"code":"CMO-09","name":"抗压与坚韧","level":2,"comment":"...","suggestion":"..."}],"overall":"两三句总评","totalScore":65}`;
+
+  try {
+    const out = await llmChat([{ role: "system", content: prompt }]);
+    const m = out.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+  } catch (e) { /* fall through */ }
+  return sandboxVirtualEvaluate(msgs);
+}
+
+function sandboxVirtualEvaluate(msgs) {
+  const userMsgs = msgs.filter(m => m.role === "user");
+  const avgLen = userMsgs.reduce((s, m) => s + m.text.length, 0) / Math.max(1, userMsgs.length);
+  const base = Math.min(3, Math.max(1, Math.floor(avgLen / 40)));
+  return {
+    dimensions: [
+      { code: "CMO-01", name: "沟通表达", level: base, comment: avgLen > 60 ? "能较充分地表达观点和回应质疑" : "表达较为简短，可进一步展开论述", suggestion: "尝试用「结论-依据-建议」结构来回应质疑" },
+      { code: "CMO-02", name: "结构化思维", level: Math.max(1, base - 1), comment: "回答的组织性有待加强", suggestion: "先梳理优先级再回应，避免被单点问题带偏" },
+      { code: "CMO-03", name: "跨职能协作", level: base, comment: userMsgs.length > 3 ? "尝试回应了多方的关切" : "互动偏少，可更主动地询问各方意见", suggestion: "主动询问研发和测试的顾虑，展现协作意识" },
+      { code: "CMO-09", name: "抗压与坚韧", level: Math.min(4, base + 1), comment: "面对质疑保持了稳定的输出", suggestion: "保持这个状态，挑战性场景正是展现韧性的机会" },
+    ],
+    overall: "本次评审模拟中，你在压力下保持了基本的沟通和应对能力。建议在结构化表达和主动协作方面进一步提升。",
+    totalScore: 55 + base * 10,
+  };
+}
+
 /* ============ HTTP 服务 ============ */
 function json(res, code, data) { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "GET,POST,OPTIONS" }); res.end(JSON.stringify(data)); }
 function readBody(req) {
@@ -341,12 +452,72 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/api/report") {
     const sessionId = url.searchParams.get("sessionId");
     const session = sessions.get(sessionId) || { evidence: [] };
-    // 报告一次生成即定稿：同会话重复请求返回缓存，不重复调用模型
     if (session.report) return json(res, 200, session.report);
     const out = MODE === "real" ? await realReport(session) : virtualReport(session.evidence);
     session.report = out;
     return json(res, 200, out);
   }
+
+  /* ============ 情景模拟演练（多角色 Agent 评审会） ============ */
+  if (url.pathname === "/api/sandbox/start" && req.method === "POST") {
+    const { sessionId } = await readBody(req);
+    if (!sessions.has(sessionId)) sessions.set(sessionId, { evidence: [] });
+    const sb = sessions.get(sessionId);
+    sb.sandbox = { msgs: [], round: 0, maxRounds: 10, finished: false };
+    const opening = "好的，人都到齐了，我们开始评审吧。你先介绍一下这个方案的核心内容。";
+    sb.sandbox.msgs.push({ role: "dev", name: SANDBOX_AGENTS.dev.name, text: opening });
+    sb.sandbox.round = 1;
+    return json(res, 200, { mode: MODE, scenario: SANDBOX_SCENARIO, msgs: sb.sandbox.msgs, round: 1, maxRounds: 10 });
+  }
+
+  if (url.pathname === "/api/sandbox/chat" && req.method === "POST") {
+    const { sessionId, text, endNow } = await readBody(req);
+    const session = sessions.get(sessionId);
+    if (!session || !session.sandbox) return json(res, 200, { error: "sandbox not started" });
+    const sb = session.sandbox;
+    if (sb.finished) return json(res, 200, { msgs: sb.msgs, round: sb.round, finished: true });
+
+    sb.msgs.push({ role: "user", name: "你", text });
+    if (endNow || sb.round >= sb.maxRounds) { sb.finished = true; return json(res, 200, { msgs: sb.msgs, round: sb.round, finished: true }); }
+    sb.round++;
+
+    // 轮转选择下一个发言的 Agent（根据内容简单匹配）
+    const nextAgent = pickAgent(text, sb.msgs);
+    let reply;
+    if (MODE === "real") {
+      try { reply = await sandboxAgentCall(nextAgent, sb.msgs); }
+      catch (e) { reply = sandboxFallback(nextAgent); }
+    } else {
+      reply = sandboxFallback(nextAgent);
+    }
+    sb.msgs.push({ role: nextAgent, name: SANDBOX_AGENTS[nextAgent].name, text: reply });
+
+    // 有时第二个 Agent 也会跟一句（30%概率）
+    if (Math.random() < 0.3 && sb.round < sb.maxRounds) {
+      const second = pickSecondAgent(nextAgent);
+      let reply2;
+      if (MODE === "real") {
+        try { reply2 = await sandboxAgentCall(second, sb.msgs); }
+        catch (e) { reply2 = sandboxFallback(second); }
+      } else { reply2 = sandboxFallback(second); }
+      sb.msgs.push({ role: second, name: SANDBOX_AGENTS[second].name, text: reply2 });
+    }
+
+    return json(res, 200, { mode: MODE, msgs: sb.msgs, round: sb.round, maxRounds: sb.maxRounds, finished: sb.finished });
+  }
+
+  if (url.pathname === "/api/sandbox/evaluate" && req.method === "POST") {
+    const { sessionId } = await readBody(req);
+    const session = sessions.get(sessionId);
+    if (!session || !session.sandbox) return json(res, 200, { error: "sandbox not started" });
+    const sb = session.sandbox;
+    if (sb.evaluated) return json(res, 200, sb.evaluated);
+    sb.finished = true;
+    const result = MODE === "real" ? await sandboxEvaluate(sb.msgs) : sandboxVirtualEvaluate(sb.msgs);
+    sb.evaluated = result;
+    return json(res, 200, result);
+  }
+
   res.writeHead(404); res.end("not found");
 });
 

@@ -327,9 +327,9 @@ window.TOS_M4 = (function () {
         </div>
         <div class="sec-tag st-hard">微课学习 <span>顺序解锁 · 每节配课后练习</span></div>
         <div class="report-block">${lessonList}</div>
-        <div class="sec-tag st-soft">情境演练 <span>待微课全部完成后开放</span></div>
+        <div class="sec-tag st-soft">情景模拟演练 <span>评审会 · 多角色对话</span></div>
         <div class="report-block">
-          ${lessonsDone ? `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">${c.drill || "综合情景演练"}</span></div>` : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成全部微课后解锁</span></div>`}
+          ${lessonsDone ? `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">智能客服升级 · 第一期评审会</span></div>` : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成全部微课后解锁</span></div>`}
         </div>
         <div class="sec-tag" style="border-color:var(--c-ink)">再评 <span>课程闭环 · 测学练考</span></div>
         <div class="report-block">
@@ -470,6 +470,9 @@ window.TOS_M4 = (function () {
     if (page === "course") {
       pkg.load();
       if (state.stage === "lesson") return $app().innerHTML = viewLesson();
+      if (state.stage === "sandbox-intro") return $app().innerHTML = viewSandboxIntro();
+      if (state.stage === "sandbox-chat") return $app().innerHTML = viewSandboxChat();
+      if (state.stage === "sandbox-report") return $app().innerHTML = viewSandboxReport();
       if (state.stage === "drill") return $app().innerHTML = viewDrill();
       if (state.stage === "exam") return $app().innerHTML = viewExam();
       return $app().innerHTML = state.course ? viewCourse() : viewStation();
@@ -529,7 +532,15 @@ window.TOS_M4 = (function () {
       }
       case "back-course": state.stage = "course"; app.innerHTML = viewCourse(); return true;
       case "toggle-plan": planOpen = !planOpen; app.innerHTML = viewList(); return true;
-      case "enter-drill": state.stage = "drill"; app.innerHTML = viewDrill(); return true;
+      case "enter-drill": state.stage = "sandbox-intro"; app.innerHTML = viewSandboxIntro(); return true;
+      case "sb-start": sbStart(); return true;
+      case "sb-send": sbSend(); return true;
+      case "sb-end": {
+        sb.finished = true;
+        try { sbApi("/api/sandbox/chat", { sessionId: sb.sessionId, text: "（会议结束）", endNow: true }); } catch(e){}
+        state.stage = "sandbox-chat"; app.innerHTML = viewSandboxChat(); return true;
+      }
+      case "sb-evaluate": sbEvaluate(); return true;
       case "finish-drill": state.stage = "exam"; app.innerHTML = viewExam(); return true;
       case "finish-course": {
         pkg.data.courses[state.course.id].finished = true; pkg.save();
@@ -546,5 +557,171 @@ window.TOS_M4 = (function () {
     return false;
   }
 
-  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK };
+  // ---------- 情景模拟演练 ----------
+  const sb = { sessionId: null, scenario: null, msgs: [], round: 0, maxRounds: 10, finished: false, busy: false, eval: null };
+  const AGENT_STYLE = { dev: { c: "#c5b0f4", l: "研发" }, biz: { c: "#f3c9b6", l: "业务" }, qa: { c: "#c8e6cd", l: "测试" } };
+
+  async function sbApi(path, body) {
+    const base = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "http://localhost:3090" : "";
+    const r = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" }, body: JSON.stringify(body) });
+    return r.json();
+  }
+
+  function sbBubble(m) {
+    if (m.role === "user") return `<div class="chat-msg user"><div class="chat-bubble m">${m.text}</div></div>`;
+    const st = AGENT_STYLE[m.role] || {};
+    return `<div class="chat-msg agent"><span class="agent-chip" style="background:${st.c || "#ddd"}">${st.l || m.role}</span><div class="chat-bubble a"><b style="font-size:11px">${m.name}</b><br>${m.text}</div></div>`;
+  }
+
+  function viewSandboxIntro() {
+    const sc = sb.scenario || {};
+    return `
+      <div class="learn-page">
+        <button class="m-btn-back" style="margin:0 0 var(--sp-md)" data-action="back-course">← 返回课程</button>
+        <div class="sec-tag st-soft">情景模拟演练</div>
+        <div class="report-block">
+          <div class="card-title">${sc.title || "智能客服升级 · 第一期评审会"}</div>
+          <p style="font-size:13px;opacity:.75;line-height:1.7">${sc.background || ""}</p>
+        </div>
+        <div class="report-block">
+          <div class="card-title">会议目标</div>
+          <p style="font-size:13px;opacity:.7;line-height:1.6">${sc.goal || ""}</p>
+        </div>
+        <div class="report-block">
+          <div class="card-title">你的方案摘要（PRD）</div>
+          <div class="mono" style="font-size:12px;line-height:1.8;opacity:.7">
+            范围：${sc.prd?.scope || ""}<br>
+            技术：${sc.prd?.tech || ""}<br>
+            周期：${sc.prd?.timeline || ""}<br>
+            指标：${sc.prd?.metrics || ""}
+          </div>
+        </div>
+        <div class="report-block">
+          <div class="card-title">参会人员</div>
+          ${Object.values(AGENT_STYLE).map(a => `<div class="chapter-row"><span class="chapter-check" style="background:${a.c};border:none;width:10px;height:10px;border-radius:50%"></span><span style="font-size:13px">${a.l}方</span></div>`).join("")}
+        </div>
+        <p class="mono" style="font-size:10px;opacity:.4;text-align:center;margin:8px 0">对话限 ${sb.maxRounds} 轮 · Demo 阶段</p>
+        <button class="quiz-start" data-action="sb-start">开始模拟 →</button>
+      </div>`;
+  }
+
+  function viewSandboxChat() {
+    const done = sb.finished || sb.round >= sb.maxRounds;
+    return `
+      <div class="chat-page">
+        <div class="chat-head">
+          <div>
+            <div style="font-weight:var(--fw-700)">评审会 · 情景模拟</div>
+            <div class="mono" style="font-size:var(--fs-caption);opacity:.6">轮次 ${sb.round}/${sb.maxRounds} ${done ? "· 已结束" : ""}</div>
+          </div>
+          ${!done ? '<button class="chat-end-btn" data-action="sb-end">结束模拟</button>' : '<button class="chat-end-btn" data-action="sb-evaluate">查看报告</button>'}
+        </div>
+        <div class="chat-body" id="sb-body">${sb.msgs.map(sbBubble).join("")}</div>
+        ${done ? `
+        <div style="padding:var(--sp-md);border-top:1px solid var(--c-hairline);background:var(--c-canvas)">
+          <button data-action="sb-evaluate" style="width:100%;height:48px;border:none;border-radius:var(--r-pill);background:var(--c-primary);color:#fff;font-size:16px;font-family:var(--font-sans);cursor:pointer">查看评估报告 →</button>
+        </div>` : `
+        <div class="chat-input-bar">
+          <input class="chat-input" id="sb-input" placeholder="你的回应…" maxlength="300">
+          <button class="chat-send" data-action="sb-send">发送</button>
+        </div>`}
+      </div>`;
+  }
+
+  function viewSandboxReport() {
+    const ev = sb.eval;
+    if (!ev) return `<div class="m-center"><p>评估生成中…</p></div>`;
+    const dims = ev.dimensions || [];
+    const pct = (lv) => Math.round(((lv - 1) / 3) * 88) + 6;
+    return `
+      <div class="learn-page">
+        <div class="report-head">
+          <div class="mono" style="font-size:var(--fs-caption);opacity:.5;letter-spacing:.12em">SANDBOX REPORT</div>
+          <h2 style="font-size:22px;font-weight:var(--fw-700)">情景模拟评估</h2>
+          <div class="page-sub">评审会 · ${sb.round} 轮对话</div>
+        </div>
+        <div class="report-block" style="background:var(--c-block-mint);text-align:center;padding:var(--sp-lg)">
+          <div class="mono" style="font-size:28px;font-weight:700">${ev.totalScore || 60}</div>
+          <div style="font-size:12px;opacity:.6">总分（100分制）</div>
+        </div>
+        ${dims.map(d => `
+        <div class="report-block">
+          <div class="dim-line1">
+            <span class="dim-name">${d.name}</span>
+            <span class="mono">L${d.level}</span>
+            <span class="grade ${d.level >= 3 ? "g-high" : d.level >= 2 ? "g-mid" : "g-low"}">${d.level >= 3 ? "优秀" : d.level >= 2 ? "中等" : "待提升"}</span>
+          </div>
+          <div class="heat-track small" style="width:100%;height:8px;margin:6px 0 6px">
+            <div class="heat-fill ${d.level >= 3 ? "g-high" : d.level >= 2 ? "g-mid" : "g-low"}" style="width:${pct(d.level)}%"></div>
+          </div>
+          <p style="font-size:13px;line-height:1.6">${d.comment}</p>
+          <p style="font-size:12px;opacity:.6;margin-top:4px">💡 ${d.suggestion}</p>
+        </div>`).join("")}
+        <div class="report-block profile-card">
+          <div class="card-title">总评</div>
+          <p style="font-size:13px;line-height:1.7">${ev.overall || ""}</p>
+        </div>
+        <button class="quiz-start" data-action="back-course">← 返回课程</button>
+      </div>`;
+  }
+
+  async function sbStart() {
+    sb.sessionId = "sb_" + Date.now().toString(36);
+    try {
+      const d = await sbApi("/api/sandbox/start", { sessionId: sb.sessionId });
+      sb.scenario = d.scenario; sb.msgs = d.msgs || []; sb.round = d.round || 1; sb.maxRounds = d.maxRounds || 10;
+    } catch (e) {
+      sb.msgs = [{ role: "dev", name: "张工（研发负责人）", text: "好的，我们开始评审吧。你先介绍一下方案。" }];
+      sb.round = 1;
+    }
+    state.stage = "sandbox-chat";
+    $app().innerHTML = viewSandboxChat();
+  }
+
+  async function sbSend() {
+    if (sb.busy) return;
+    const input = document.getElementById("sb-input");
+    const text = (input?.value || "").trim();
+    if (!text) return;
+    if (input) input.value = "";
+    sb.msgs.push({ role: "user", name: "你", text });
+    sb.busy = true;
+    renderTyping(true);
+    try {
+      const d = await sbApi("/api/sandbox/chat", { sessionId: sb.sessionId, text });
+      sb.msgs = d.msgs || sb.msgs; sb.round = d.round || sb.round; sb.finished = d.finished || false;
+    } catch (e) {
+      sb.msgs.push({ role: "dev", name: "张工", text: "（网络波动）" });
+    }
+    sb.busy = false;
+    state.stage = "sandbox-chat";
+    $app().innerHTML = viewSandboxChat();
+    const body = document.getElementById("sb-body");
+    if (body) body.scrollTop = body.scrollHeight;
+  }
+
+  function renderTyping(show) {
+    let t = document.getElementById("sb-typing");
+    if (!show) { if (t) t.remove(); return; }
+    const body = document.getElementById("sb-body");
+    if (!body) return;
+    t = document.createElement("div");
+    t.id = "sb-typing"; t.className = "chat-msg agent";
+    t.innerHTML = '<div class="chat-bubble a typing"><span></span><span></span><span></span></div>';
+    body.appendChild(t); body.scrollTop = body.scrollHeight;
+  }
+
+  async function sbEvaluate() {
+    state.stage = "sandbox-report";
+    $app().innerHTML = viewSandboxReport();
+    try {
+      const d = await sbApi("/api/sandbox/evaluate", { sessionId: sb.sessionId });
+      sb.eval = d;
+    } catch (e) {
+      sb.eval = { dimensions: [{ code:"CMO-01", name:"沟通表达", level:2, comment:"评估服务暂不可用", suggestion:"请稍后重试" }], overall:"评估生成失败", totalScore:0 };
+    }
+    $app().innerHTML = viewSandboxReport();
+  }
+
+  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate };
 })();

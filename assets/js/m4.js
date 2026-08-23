@@ -839,20 +839,47 @@ window.TOS_M4 = (function () {
     const text = (input?.value || "").trim();
     if (!text) return;
     if (input) input.value = "";
+
+    // 1. 用户消息立即上屏（不等 AI）
     sb.msgs.push({ role: "user", name: "你", text });
-    sb.busy = true;
+    const body = document.getElementById("sb-body");
+    if (body) {
+      body.insertAdjacentHTML("beforeend", sbBubble({ role: "user", name: "你", text }));
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // 2. 显示打字中
     renderTyping(true);
+    sb.busy = true;
+
+    // 3. 等 AI 回复
+    let prevLen = sb.msgs.length;
     try {
       const d = await sbApi("/api/sandbox/chat", { sessionId: sb.sessionId, text });
-      sb.msgs = d.msgs || sb.msgs; sb.round = d.round || sb.round; sb.finished = d.finished || false;
+      sb.msgs = d.msgs || sb.msgs;
+      sb.round = d.round || sb.round;
+      sb.finished = d.finished || false;
     } catch (e) {
-      sb.msgs.push({ role: "dev", name: "张工", text: "（网络波动）" });
+      sb.msgs.push({ role: "dev", name: "张工", text: "（网络波动，请重试）" });
     }
     sb.busy = false;
-    state.stage = "sandbox-chat";
-    $app().innerHTML = viewSandboxChat();
-    const body = document.getElementById("sb-body");
-    if (body) body.scrollTop = body.scrollHeight;
+    renderTyping(false);
+
+    // 4. 只追加新消息（不整页重渲染）
+    if (body) {
+      for (let i = prevLen; i < sb.msgs.length; i++) {
+        const m = sb.msgs[i];
+        if (m.role !== "user") body.insertAdjacentHTML("beforeend", sbBubble(m));
+      }
+      body.scrollTop = body.scrollHeight;
+    }
+
+    // 5. 如果对话结束，切换底部按钮
+    if (sb.finished) {
+      $app().innerHTML = viewSandboxChat();
+      const b2 = document.getElementById("sb-body");
+      if (b2) b2.scrollTop = b2.scrollHeight;
+    }
   }
 
   function renderTyping(show) {

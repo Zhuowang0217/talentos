@@ -275,15 +275,12 @@ window.TOS_M4 = (function () {
             <h2 style="font-size:20px;font-weight:var(--fw-700)">我的工位</h2>
             <div class="page-sub">启明科技 · 入职第 ${p.day} 天</div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div class="progress-ring" style="--p:${pct}"><span>${pct}%</span></div>
-            <div data-action="go" data-to="#/profile" style="width:36px;height:36px;border-radius:50%;background:var(--c-block-lilac);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">我</div>
-          </div>
+          <div class="progress-ring" style="--p:${pct}"><span>${pct}%</span></div>
         </div>
         <div class="office-scene">
           <img src="assets/img/station-bg.jpg" alt="我的工位">
           ${zones}
-          <span class="you-tag" style="left:76%;top:84%">你</span>
+          <div class="you-tag" style="left:76%;top:84%;cursor:pointer" data-action="go" data-to="#/profile">你</div>
         </div>
         
       </div>`;
@@ -1070,6 +1067,11 @@ window.TOS_M4 = (function () {
   }
 
   function viewSandboxIntro() {
+    // 硬技能课程不应该进这里，但如果进了就显示任务
+    const c = state.course;
+    if (c && c.type === "hard") {
+      return viewTask();
+    }
     const sc = sb.scenario || {};
     return `
       <div class="learn-page">

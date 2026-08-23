@@ -622,9 +622,10 @@
     document.addEventListener("pointerdown", (e) => {
       if (e.target.closest && e.target.closest("#hold-talk")) holdTalkStart();
       if (e.target.closest && e.target.closest("#sb-hold") && window.TOS_M4) TOS_M4.sbHoldStart();
+      if (e.target.closest && e.target.closest("#pt-hold") && window.TOS_M4) TOS_M4.ptHoldStart();
     });
-    document.addEventListener("pointerup", () => { holdTalkEnd(); if (window.TOS_M4) TOS_M4.sbHoldEnd(); });
-    document.addEventListener("pointercancel", () => { holdTalkEnd(); if (window.TOS_M4) TOS_M4.sbHoldEnd(); });
+    document.addEventListener("pointerup", () => { holdTalkEnd(); if (window.TOS_M4) { TOS_M4.sbHoldEnd(); TOS_M4.ptHoldEnd(); } });
+    document.addEventListener("pointercancel", () => { holdTalkEnd(); if (window.TOS_M4) { TOS_M4.sbHoldEnd(); TOS_M4.ptHoldEnd(); } });
     // 沙盘输入框回车发送
     document.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.target && e.target.id === "sb-input") { e.preventDefault(); if (window.TOS_M4) TOS_M4.sbSend(); }

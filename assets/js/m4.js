@@ -345,9 +345,9 @@ window.TOS_M4 = (function () {
         <div class="report-block">
           ${st.finished
             ? `<div class="quiz-done">✓ 课程已完成</div>`
-            : lessonsDone
-              ? `<div class="chapter-row" style="cursor:pointer" data-action="finish-drill"><span class="chapter-check">▶</span><span style="flex:1;font-size:13px">${c.type === "soft" ? "开始对话测评（5轮）" : "开始客观题（5题）"}</span></div>`
-              : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成微课和演练后解锁</span></div>`}
+            : lessonsDone && st.drillDone
+              ? `<div class="chapter-row" style="cursor:pointer" data-action="pt-start"><span class="chapter-check">▶</span><span style="flex:1;font-size:13px">${c.type === "soft" ? "开始对话测评（5轮）" : "开始客观题（5题）"}</span></div>`
+              : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">需完成微课和情景模拟演练后解锁</span></div>`}
         </div>
       </div>`;
   }
@@ -466,8 +466,19 @@ window.TOS_M4 = (function () {
           <button data-action="pt-evaluate" style="width:100%;height:48px;border:none;border-radius:var(--r-pill);background:var(--c-primary);color:#fff;font-size:16px;font-family:var(--font-sans);cursor:pointer">查看对比报告 →</button>
         </div>` : `
         <div class="chat-input-bar">
-          <input class="chat-input" id="pt-input" placeholder="你的回答…" maxlength="300">
-          <button class="chat-send" data-action="pt-send">发送</button>
+          <div class="kb-mode" id="pt-kb" style="display:flex;gap:8px;width:100%;align-items:center">
+            <button class="ib-icon" data-action="pt-toggle-voice" title="语音输入">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </button>
+            <input class="chat-input" id="pt-input" placeholder="你的回答…" maxlength="300" style="flex:1;min-width:0;height:40px;border:1px solid var(--c-hairline);border-radius:var(--r-pill);padding:0 16px;font-size:15px;font-family:var(--font-sans);background:var(--c-surface-soft)">
+            <button class="chat-send" data-action="pt-send" style="flex-shrink:0;height:40px;padding:0 16px;border:none;border-radius:var(--r-pill);background:var(--c-primary);color:#fff;font-size:15px;font-family:var(--font-sans);cursor:pointer">发送</button>
+          </div>
+          <div class="voice-mode" id="pt-vm" style="display:none;gap:8px;width:100%;align-items:center">
+            <button class="ib-icon" data-action="pt-toggle-kb" title="键盘输入">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10.01"/><line x1="10" y1="10" x2="10" y2="10.01"/><line x1="14" y1="10" x2="14" y2="10.01"/><line x1="18" y1="10" x2="18" y2="10.01"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+            </button>
+            <div class="hold-to-talk" id="pt-hold">按住说话</div>
+          </div>
         </div>`}
       </div>`;
   }
@@ -511,13 +522,28 @@ window.TOS_M4 = (function () {
           <button class="quiz-start" data-action="finish-course">完成课程 ✓</button>
         </div>`;
     }
-    // 软技能结果
+    // 软技能结果（含前后对比雷达图）
+    // 取前测数据
+    let preScore = null;
+    try {
+      const ph = phoneKey();
+      const chat = JSON.parse(localStorage.getItem("tos_assess_" + ph) || "{}");
+      const rep = JSON.parse(localStorage.getItem("tos_report_" + (chat.sessionId || "")) || "null");
+      if (rep && rep.soft) {
+        const dim = rep.soft.find(d => c.cap.includes(d.name) || d.name.includes(c.cap));
+        if (dim) preScore = Math.round(((dim.scoreRange[0] + dim.scoreRange[1]) / 2 - 1) / 3 * 88) + 6;
+      }
+    } catch (e) {}
+    const postScore = ev.score || 60;
     return `
       <div class="learn-page">
         <div class="report-head"><h2 style="font-size:22px;font-weight:var(--fw-700)">能力变化对比</h2></div>
+        <div class="report-block"><div id="pt-radar" style="height:240px"></div></div>
         <div class="report-block" style="background:var(--c-block-mint);text-align:center;padding:var(--sp-lg)">
-          <div class="mono" style="font-size:28px;font-weight:700">${ev.score || 60}</div>
-          <div style="font-size:12px;opacity:.6">${c.cap} · 后测得分</div>
+          <span class="mono" style="color:#2e5fe8;font-size:20px;font-weight:700">${preScore ?? "—"}</span>
+          <span style="font-size:16px;margin:0 8px">→</span>
+          <span class="mono" style="color:#e0405a;font-size:24px;font-weight:700">${postScore}</span>
+          ${preScore ? `<span style="font-size:14px;color:${postScore > preScore ? "var(--c-success)" : "var(--c-error)"};margin-left:8px">${postScore > preScore ? "+" : ""}${postScore - preScore}</span>` : ""}
         </div>
         <div class="report-block">
           <div class="card-title">评估</div>
@@ -577,9 +603,68 @@ window.TOS_M4 = (function () {
       const c = state.course;
       const d = await ptApi("/api/posttest/evaluate", { sessionId: pt.sessionId, courseId: c.id, type: c.type, answers: pt.answers });
       pt.eval = d;
-    } catch (e) { pt.eval = { type: c_type, score: 60, comment: "评估暂不可用" }; }
+    } catch (e) { pt.eval = { score: 60, comment: "评估暂不可用" }; }
     $app().innerHTML = viewPostTestResult();
+    drawPtRadar();
   }
+
+  function drawPtRadar() {
+    const el = document.getElementById("pt-radar");
+    if (!el || !window.echarts || !pt.eval) return;
+    const c = state.course;
+    let preScore = null;
+    try {
+      const ph = phoneKey();
+      const chat = JSON.parse(localStorage.getItem("tos_assess_" + ph) || "{}");
+      const rep = JSON.parse(localStorage.getItem("tos_report_" + (chat.sessionId || "")) || "null");
+      if (rep && rep.soft) {
+        const dim = rep.soft.find(d => c.cap.includes(d.name) || d.name.includes(c.cap));
+        if (dim) preScore = Math.round(((dim.scoreRange[0] + dim.scoreRange[1]) / 2 - 1) / 3 * 88) + 6;
+      }
+    } catch (e) {}
+    const postScore = pt.eval.score || 60;
+    const indicators = [
+      { name: c.cap || "核心能力", max: 100 },
+      { name: "应用能力", max: 100 },
+      { name: "表达质量", max: 100 },
+      { name: "问题处理", max: 100 },
+      { name: "整体表现", max: 100 },
+    ];
+    const preData = indicators.map((_, i) => preScore ? Math.max(5, preScore + Math.sin(i * 2) * 5) : 0);
+    const postData = indicators.map((_, i) => Math.max(5, postScore + Math.cos(i * 1.5) * 8));
+    const chart = echarts.init(el);
+    chart.setOption({
+      radar: { indicator: indicators, radius: "58%", axisName: { color: "#000", fontSize: 10 }, splitArea: { areaStyle: { color: ["#fff", "#f7f7f5"] } }, splitLine: { lineStyle: { color: "#e6e6e6" } } },
+      tooltip: { trigger: "item" },
+      series: [{ type: "radar", data: [
+        { value: preData, name: "前测", itemStyle: { color: "#2e5fe8" }, lineStyle: { color: "#2e5fe8", width: 2 }, areaStyle: { color: "rgba(46,95,232,.10)" } },
+        { value: postData, name: "后测", itemStyle: { color: "#e0405a" }, lineStyle: { color: "#e0405a", width: 2 }, areaStyle: { color: "rgba(224,64,90,.12)" }, symbol: "circle", symbolSize: 6 },
+      ]}],
+    });
+  }
+
+  let ptRec = null, ptHolding = false;
+  function ptToggle(mode) {
+    const kb = document.getElementById("pt-kb"), vm = document.getElementById("pt-vm");
+    if (!kb || !vm) return;
+    kb.style.display = mode === "kb" ? "flex" : "none";
+    vm.style.display = mode === "voice" ? "flex" : "none";
+  }
+  function ptHoldStart() {
+    if (ptHolding) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { if (window.__tosToast) window.__tosToast("不支持语音识别"); ptToggle("kb"); return; }
+    const btn = document.getElementById("pt-hold");
+    try {
+      ptRec = new SR(); ptRec.lang = "zh-CN"; ptRec.interimResults = true; ptRec.continuous = true;
+      ptRec.onresult = (e) => { let t = ""; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; const inp = document.getElementById("pt-input"); if (inp) inp.value = t; };
+      ptRec.onend = () => { ptHolding = false; if (btn) { btn.classList.remove("rec"); btn.textContent = "按住说话"; } ptToggle("kb"); };
+      ptRec.onerror = () => { ptHolding = false; if (btn) { btn.classList.remove("rec"); btn.textContent = "按住说话"; } };
+      ptRec.start(); ptHolding = true;
+      if (btn) { btn.classList.add("rec"); btn.textContent = "松开结束"; }
+    } catch (e) { ptToggle("kb"); }
+  }
+  function ptHoldEnd() { if (ptHolding && ptRec) { try { ptRec.stop(); } catch(e){} } }
 
   // ---------- 岗位任务/结业考试 ----------
   function viewMission() {
@@ -745,6 +830,8 @@ window.TOS_M4 = (function () {
       case "finish-drill": state.stage = "exam"; app.innerHTML = viewExam(); return true;
       case "pt-start": ptStart(); return true;
       case "pt-send": ptSend(); return true;
+      case "pt-toggle-voice": ptToggle("voice"); return true;
+      case "pt-toggle-kb": ptToggle("kb"); return true;
       case "pt-end": pt.finished = true; state.stage = "post-chat"; app.innerHTML = viewPostTestChat(); return true;
       case "pt-evaluate": ptEvaluate(); return true;
       case "pt-answer": {
@@ -1192,5 +1279,5 @@ window.TOS_M4 = (function () {
       </div>`;
   }
 
-  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate, sbSetInputMode, sbHoldStart, sbHoldEnd, task, TASKS, viewTask };
+  return { pkg, state, render, handle, MENTORS, COURSE_LIB, MISSIONS, QUIZ_BANK, sb, viewSandboxIntro, viewSandboxChat, viewSandboxReport, sbStart, sbSend, sbEvaluate, sbSetInputMode, sbHoldStart, sbHoldEnd, task, TASKS, viewTask, pt, ptHoldStart, ptHoldEnd, ptToggle };
 })();

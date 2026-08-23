@@ -275,14 +275,17 @@ window.TOS_M4 = (function () {
             <h2 style="font-size:20px;font-weight:var(--fw-700)">我的工位</h2>
             <div class="page-sub">启明科技 · 入职第 ${p.day} 天</div>
           </div>
-          <div class="progress-ring" style="--p:${pct}"><span>${pct}%</span></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="progress-ring" style="--p:${pct}"><span>${pct}%</span></div>
+            <div data-action="go" data-to="#/profile" style="width:36px;height:36px;border-radius:50%;background:var(--c-block-lilac);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">我</div>
+          </div>
         </div>
         <div class="office-scene">
           <img src="assets/img/station-bg.jpg" alt="我的工位">
           ${zones}
           <span class="you-tag" style="left:76%;top:84%">你</span>
         </div>
-        <button class="m-btn-back" style="width:100%;margin-top:12px" data-action="go" data-to="#/profile">我的 · 个人中心</button>
+        
       </div>`;
   }
 
@@ -1001,7 +1004,16 @@ window.TOS_M4 = (function () {
         state.stage = "course"; app.innerHTML = viewCourse();
         toastEl("课程完成！进度已同步到工位"); return true;
       }
-      case "mission-open": state.missionOpen = el.dataset.id; app.innerHTML = viewMissionOpen(); return true;
+      case "mission-open": {
+        // 直接启动沙盘模拟（与课程内的情景模拟演练相同逻辑）
+        const m = MISSIONS.find(x => x.id === el.dataset.id);
+        if (m) {
+          state.missionOpen = m.id;
+          state.stage = "sandbox-intro";
+          app.innerHTML = viewSandboxIntro();
+        }
+        return true;
+      }
       case "mission-done": {
         pkg.data.missions[el.dataset.id] = true; pkg.save();
         state.missionOpen = null; app.innerHTML = viewMission();

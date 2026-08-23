@@ -561,8 +561,37 @@ window.TOS_M4 = (function () {
   }
 
   // ---------- 情景模拟演练 ----------
-  const sb = { sessionId: null, scenario: null, msgs: [], round: 0, maxRounds: 10, finished: false, busy: false, eval: null };
+  const sb = { sessionId: null, msgs: [], round: 0, maxRounds: 10, finished: false, busy: false, eval: null };
   const AGENT_STYLE = { dev: { c: "#c5b0f4", l: "研发" }, biz: { c: "#f3c9b6", l: "业务" }, qa: { c: "#c8e6cd", l: "测试" } };
+
+  // 场景数据（与服务端保持同步，介绍页立即可见）
+  const SCENARIO_DATA = {
+    title: "智能客服升级 · 第一期评审会",
+    background: "你是启明科技的AI产品经理，负责「智能客服升级」项目。公司现有客服系统每天处理约5000条咨询，人工回复平均耗时3分钟，高峰期排队严重。公司决定引入AI能力提升客服效率，你负责第一期方案的评审。",
+    goal: "顺利完成评审：让各方理解方案范围、回应关切、达成共识并确定上线时间。",
+    phase1: {
+      title: "第一期目标",
+      items: [
+        "覆盖高频TOP 100问题自动回复，目标自动应答率≥40%",
+        "复杂/敏感问题100%转人工，转接延迟<2秒",
+        "AI回答准确率≥85%（基于内部评测集）",
+        "客服人力释放30%，转向高价值客户服务",
+        "用户满意度（CSAT）从3.2提升至3.7（5分制）",
+      ],
+    },
+    prd: {
+      title: "产品需求文档（PRD 摘要）",
+      sections: [
+        { h: "1. 项目背景", c: "现有客服系统日均5000条咨询，人工平均处理3分钟/条，高峰期用户等待超15分钟，投诉率上升8%。竞品已上线AI客服，响应时间<10秒。" },
+        { h: "2. 功能范围", c: "第一期仅做FAQ自动问答：基于公司知识库（约2000篇文档），用RAG方式检索并生成回答。覆盖TOP 100高频问题（占咨询量40%）。不做：多轮对话、情绪识别、主动推荐。" },
+        { h: "3. 技术方案", c: "采用RAG（检索增强生成）方案：用户提问→向量化检索知识库Top 5→LLM生成回答并标注来源。不微调模型，使用公司统一的GLM-4服务。置信度低于阈值时自动转人工。" },
+        { h: "4. 里程碑", c: "W1-2：需求确认+知识库整理；W3-4：RAG管道搭建+评测集标注；W5-6：联调+内部测试；W7-8：灰度发布20%流量+全量上线。" },
+        { h: "5. 成功指标", c: "自动应答率≥40%；准确率≥85%；转人工延迟<2秒；CSAT从3.2→3.7；客服效率提升30%。" },
+        { h: "6. 风险与对策", c: "知识库覆盖不足→持续补充FAQ；幻觉风险→置信度阈值+人工兜底；用户不适→首次使用提示「AI回复」标识，可随时转人工。" },
+      ],
+    },
+  };
+  sb.scenario = SCENARIO_DATA;
 
   async function sbApi(path, body) {
     const base = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "http://localhost:3090" : "";

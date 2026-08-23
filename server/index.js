@@ -506,13 +506,19 @@ async function sandboxAgentCall(agentKey, msgs, taskOverride) {
       const p = JSON.parse(jm[0]);
       return { reply: (p.reply || "").trim().slice(0, 150), satisfied: p.satisfied === true };
     } catch (e) {
-      // JSON malformed, try to extract reply field
-      const rm = clean.match(/"reply"\s*:\s*"([^"]+)"/);
+      // JSON malformed, extract reply field value specifically
+      const rm = clean.match(/"reply"\s*:\s*"([^"]*)"/);
       if (rm) return { reply: rm[1].slice(0, 150), satisfied: false };
     }
   }
-  // Last resort: strip all JSON-looking syntax, keep plain text
-  const plain = clean.replace(/[{}\[\]"]/g, "").replace(/^json/i, "").trim();
+  // Fallback: strip all JSON syntax INCLUDING field names
+  const plain = clean
+    .replace(/"reply"\s*:\s*"?/gi, "")
+    .replace(/"satisfied"\s*:\s*(?:true|false)/gi, "")
+    .replace(/[{}\[\]"]/g, "")
+    .replace(/^json/i, "")
+    .replace(/```/g, "")
+    .trim();
   return { reply: plain.slice(0, 150) || "（沉默）", satisfied: false };
 }
 

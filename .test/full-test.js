@@ -114,7 +114,9 @@ ok("含锁定", appStub.innerHTML.includes("开启") || appStub.innerHTML.includ
 section("10 个人面板");
 M.render("station");
 ok("工位页", appStub.innerHTML.includes("我的工位"));
-ok("四Tab", appStub.innerHTML.includes("基本信息") && appStub.innerHTML.includes("今日待办") && appStub.innerHTML.includes("我的成就") && appStub.innerHTML.includes("我的成长"));
+ok("工位有个人中心入口", appStub.innerHTML.includes("个人中心"));
+M.render("profile");
+ok("个人中心四Tab", appStub.innerHTML.includes("基本信息") && appStub.innerHTML.includes("今日待办") && appStub.innerHTML.includes("我的成就") && appStub.innerHTML.includes("我的成长"));
 ok("退出登录", appStub.innerHTML.includes("退出"));
 M.handle("pf-tab", {dataset:{tab:"todo"}});
 ok("待办Tab", appStub.innerHTML.includes("待办") || appStub.innerHTML.includes("必修"));

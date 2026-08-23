@@ -472,7 +472,11 @@ Tech constraints: ${t.documents?.techConstraints || ""}
 Tone: ${persona.speaking.tone}
 Typical expressions: ${persona.speaking.habits.join(" / ")}
 Keep under ${persona.speaking.length}. Respond in Chinese.
-Stay in character - challenge the candidate based on YOUR personality and values.
+
+CRITICAL: You ONLY respond to the CANDIDATE (the product manager being evaluated).
+NEVER respond to, argue with, or comment on other meeting participants' messages.
+Your dialogue is always directed AT the candidate, not at other agents.
+If another participant said something, you may acknowledge it briefly but redirect your question/challenge to the candidate.
 
 [Output Format - MANDATORY]
 You MUST respond in valid JSON:
@@ -529,11 +533,18 @@ async function sandboxAgentCall(agentKey, msgs, taskOverride) {
   const persona = PERSONAS[SANDBOX_AGENTS[agentKey].key] || PERSONAS.dev_zhang;
   const taskCtx = taskOverride || TASK_CONTEXT;
   const systemPrompt = buildPersonaPrompt(persona, taskCtx);
+  // 构建对话历史：明确标注候选人 vs 其他参会者
   const recent = msgs.slice(-8);
-  const history = recent.map(m => `[${m.name}] ${m.text}`).join("\n");
+  const history = recent.map(m => {
+    if (m.role === "user") return `[CANDIDATE] ${m.text}`;
+    if (m.role === "system") return `[SYSTEM] ${m.text}`;
+    return `[${m.name}] ${m.text}`;
+  }).join("\n");
+  // 找到候选人最后的发言
+  const lastUserMsg = [...recent].reverse().find(m => m.role === "user");
   const out = await llmChat([
     { role: "system", content: systemPrompt },
-    { role: "user", content: "Meeting dialogue:\n" + history + "\n\nRespond as " + persona.identity.name + " in JSON format." },
+    { role: "user", content: "Meeting record (CANDIDATE = the person you are evaluating, others = fellow meeting participants):\n" + history + "\n\nThe candidate just said: \"" + (lastUserMsg?.text || "") + "\"\n\nRespond DIRECTLY to the candidate as " + persona.identity.name + ". Do NOT respond to other participants. JSON format only." },
   ]);
   // Strip markdown fences then parse JSON
   let clean = out.replace(/```(?:json)?\n?/g, "").replace(/```/g, "").trim();

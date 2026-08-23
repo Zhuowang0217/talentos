@@ -376,11 +376,14 @@ function sandboxFallback(agent) {
 }
 
 async function sandboxAgentCall(agent, msgs) {
-  const history = msgs.slice(-12).map(m => `${m.name}: ${m.text}`).join("\n");
+  const a = SANDBOX_AGENTS[agent];
+  const recent = msgs.slice(-8);
+  const history = recent.map(m => `[${m.name}] ${m.text}`).join("\n");
   const out = await llmChat([
-    { role: "system", content: SANDBOX_AGENTS[agent].prompt + "\n\n对话历史：\n" + history + "\n\n请你以" + SANDBOX_AGENTS[agent].name + "的身份回复（60字以内，口语化）。只输出角色台词，不要任何前缀。" },
+    { role: "system", content: a.prompt },
+    { role: "user", content: "评审会对话记录：\n" + history + "\n\n请你以 " + a.name + " 的身份，针对最后的发言给出回应。60字以内，口语化，只输出台词。" },
   ]);
-  return out.trim().slice(0, 120);
+  return out.trim().slice(0, 150);
 }
 
 async function sandboxEvaluate(msgs) {

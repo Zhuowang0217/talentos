@@ -747,3 +747,11 @@ body {
   background: var(--c-block-mint); color: var(--c-ink);
   display: flex; align-items: center; justify-content: center;
 }
+
+/* 沙盘任务简报折叠面板 */
+.sb-brief {
+  padding: 10px var(--sp-md);
+  background: var(--c-block-cream);
+  border-bottom: 1px solid var(--c-hairline);
+  font-size: 12px; line-height: 1.5;
+}

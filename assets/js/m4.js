@@ -537,6 +537,7 @@ window.TOS_M4 = (function () {
       case "sb-send": sbSend(); return true;
       case "sb-toggle-voice": sbSetInputMode("voice"); return true;
       case "sb-toggle-kb": sbSetInputMode("kb"); return true;
+      case "sb-brief": sbShowBrief = !sbShowBrief; app.innerHTML = viewSandboxChat(); return true;
       case "sb-end": {
         sb.finished = true;
         try { sbApi("/api/sandbox/chat", { sessionId: sb.sessionId, text: "（会议结束）", endNow: true }); } catch(e){}
@@ -615,18 +616,34 @@ window.TOS_M4 = (function () {
   }
 
   let sbVoiceMode = false;
+  let sbShowBrief = false;
   function viewSandboxChat() {
     const done = sb.finished || sb.round >= sb.maxRounds;
+    const sc = sb.scenario || {};
+    const brief = sbShowBrief ? `
+      <div class="sb-brief">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">📌 任务目标</div>
+        <p style="font-size:12px;opacity:.7;line-height:1.6;margin-bottom:8px">${sc.goal || ""}</p>
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">🎯 第一期指标</div>
+        ${(sc.phase1?.items || []).slice(0, 3).map(it => `<div style="font-size:11px;opacity:.7;padding:1px 0">· ${it}</div>`).join("")}
+        <div style="font-size:13px;font-weight:700;margin:8px 0 4px">📋 PRD 要点</div>
+        <div style="font-size:11px;opacity:.7;line-height:1.6">
+          范围：${sc.prd?.sections?.[1]?.c?.slice(0, 50) || "TOP 100 FAQ"}...<br>
+          技术：RAG + GLM-4，不微调<br>
+          周期：6周开发 + 2周测试
+        </div>
+      </div>` : "";
     return `
       <div class="chat-page">
         <div class="chat-head">
-          <div>
-            <div style="font-weight:var(--fw-700)">评审会 · 情景模拟</div>
+          <button class="chat-end-btn" data-action="sb-brief" style="margin-right:6px">${sbShowBrief ? "收起 ▲" : "任务 📋"}</button>
+          <div style="flex:1">
+            <div style="font-weight:var(--fw-700)">评审会</div>
             <div class="mono" style="font-size:var(--fs-caption);opacity:.6">轮次 ${sb.round}/${sb.maxRounds} ${done ? "· 已结束" : ""}</div>
           </div>
-          ${!done ? '<button class="chat-end-btn" data-action="sb-end">结束模拟</button>' : '<button class="chat-end-btn" data-action="sb-evaluate">查看报告</button>'}
+          ${!done ? '<button class="chat-end-btn" data-action="sb-end">结束</button>' : '<button class="chat-end-btn" data-action="sb-evaluate">报告</button>'}
         </div>
-        <div class="demo-note">Demo 阶段：Agent 回复由 AI 生成，可能有延迟。</div>
+        ${brief}
         <div class="chat-body" id="sb-body">${sb.msgs.map(sbBubble).join("")}</div>
         ${done ? `
         <div style="padding:var(--sp-md);border-top:1px solid var(--c-hairline);background:var(--c-canvas)">

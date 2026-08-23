@@ -341,9 +341,13 @@ window.TOS_M4 = (function () {
             ? `<div class="chapter-row" style="cursor:pointer" data-action="enter-drill"><span class="chapter-check">▶</span><span style="flex:1">${c.type === "hard" ? (TASKS[c.id] || TASKS.C3).title : "智能客服升级 · 第一期评审会"}</span></div>`
             : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成全部微课后解锁</span></div>`}
         </div>
-        <div class="sec-tag" style="border-color:var(--c-ink)">再评 <span>课程闭环 · 测学练考</span></div>
+        <div class="sec-tag" style="border-color:var(--c-ink)">再评 <span>${c.type === "soft" ? "对话测评 · 能力对比" : "客观题 · 知识检验"}</span></div>
         <div class="report-block">
-          ${st.finished ? `<div class="quiz-done">✓ 课程已完成——能力变化已同步到成长报告</div>` : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成情境演练后进入再评</span></div>`}
+          ${st.finished
+            ? `<div class="quiz-done">✓ 课程已完成</div>`
+            : lessonsDone
+              ? `<div class="chapter-row" style="cursor:pointer" data-action="finish-drill"><span class="chapter-check">▶</span><span style="flex:1;font-size:13px">${c.type === "soft" ? "开始对话测评（5轮）" : "开始客观题（5题）"}</span></div>`
+              : `<div class="chapter-row locked-row"><span class="chapter-check">🔒</span><span style="flex:1;opacity:.5">完成微课和演练后解锁</span></div>`}
         </div>
       </div>`;
   }
@@ -410,21 +414,171 @@ window.TOS_M4 = (function () {
       </div>`;
   }
 
-  // ---------- 再评页 ----------
+  // ---------- 再评页（软技能对话 / 硬技能客观题） ----------
+  const pt = { sessionId: null, msgs: [], round: 0, maxRounds: 5, finished: false, busy: false, eval: null, questions: [], answers: [], qIdx: 0 };
+
+  async function ptApi(path, body) {
+    const base = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "http://localhost:3090" : "";
+    const r = await fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8" }, body: JSON.stringify(body) });
+    return r.json();
+  }
+
   function viewExam() {
     const c = state.course;
+    const isSoft = c.type === "soft";
+    if (pt.eval) return viewPostTestResult();
     return `
       <div class="learn-page">
-        <div class="lesson-head mono">再评 · 课程闭环</div>
+        <button class="m-btn-back" style="margin:0 0 var(--sp-md)" data-action="back-course">← 返回课程</button>
+        <div class="sec-tag ${isSoft ? "st-soft" : "st-hard"}">再评 <span>${isSoft ? "软技能 · 对话测评" : "硬技能 · 客观题"}</span></div>
         <div class="report-block">
           <div class="card-title">课程能力再评</div>
-          <p style="font-size:13px;opacity:.7;line-height:1.7">完成一次简短的能力自评，与初聊画像对比，查看你的成长。</p>
+          <p style="font-size:13px;opacity:.7;line-height:1.7">
+            ${isSoft
+              ? "通过简短对话，测评你在「" + c.cap + "」方面的能力变化，并与初聊画像对比。"
+              : "完成 5 道客观题，检验你对「" + c.cap + "」知识点的掌握程度。"}
+          </p>
         </div>
         <div class="report-block" style="background:var(--c-block-mint)">
-          <p style="font-size:12px;line-height:1.7">测 · 学 · 练 · 考——你已完成：测（初聊画像）→ 学（${c.chapters.length} 节微课）→ 练（课后练习+情境演练），现在进入最后的"考"。</p>
+          <p style="font-size:12px;line-height:1.7">测 · 学 · 练 · 考——你已完成前三环，现在进入最后的「考」。</p>
         </div>
-        <button class="quiz-start" data-action="finish-course">完成再评，结束课程 ✓</button>
+        <button class="quiz-start" data-action="pt-start">开始再评 →</button>
       </div>`;
+  }
+
+  function viewPostTestChat() {
+    const done = pt.finished || pt.round >= pt.maxRounds;
+    return `
+      <div class="chat-page">
+        <div class="chat-head">
+          <div style="flex:1">
+            <div style="font-weight:var(--fw-700)">能力再评</div>
+          </div>
+          ${done ? '<button class="chat-end-btn" data-action="pt-evaluate">查看结果</button>' : '<button class="chat-end-btn" data-action="pt-end">结束</button>'}
+        </div>
+        <div class="chat-body" id="pt-body">
+          ${pt.msgs.map(m => m.role === "user"
+            ? `<div class="chat-msg user"><div class="chat-bubble m">${m.text}</div></div>`
+            : `<div class="chat-msg agent"><span class="agent-chip" style="background:var(--c-block-mint)">测评导师</span><div class="chat-bubble a">${m.text}</div></div>`).join("")}
+        </div>
+        ${done ? `
+        <div style="padding:var(--sp-md);border-top:1px solid var(--c-hairline);background:var(--c-canvas)">
+          <button data-action="pt-evaluate" style="width:100%;height:48px;border:none;border-radius:var(--r-pill);background:var(--c-primary);color:#fff;font-size:16px;font-family:var(--font-sans);cursor:pointer">查看对比报告 →</button>
+        </div>` : `
+        <div class="chat-input-bar">
+          <input class="chat-input" id="pt-input" placeholder="你的回答…" maxlength="300">
+          <button class="chat-send" data-action="pt-send">发送</button>
+        </div>`}
+      </div>`;
+  }
+
+  function viewPostTestQuiz() {
+    const q = pt.questions[pt.qIdx];
+    if (!q) return viewPostTestResult();
+    return `
+      <div class="learn-page">
+        <button class="m-btn-back" style="margin:0 0 var(--sp-sm)" data-action="back-course">← 返回课程</button>
+        <div class="lesson-head mono">第 ${pt.qIdx + 1}/${pt.questions.length} 题</div>
+        <div class="report-block">
+          <div class="quiz-q">${q.q}</div>
+          ${q.opts.map((o, k) => `<button class="quiz-opt" data-action="pt-answer" data-i="${k}">${String.fromCharCode(65 + k)}. ${o}</button>`).join("")}
+        </div>
+      </div>`;
+  }
+
+  function viewPostTestResult() {
+    const ev = pt.eval;
+    if (!ev) return `<div class="m-center"><p>评估生成中…</p></div>`;
+    const c = state.course;
+    if (ev.type === "hard") {
+      return `
+        <div class="learn-page">
+          <div class="report-head"><h2 style="font-size:22px;font-weight:var(--fw-700)">再评结果</h2></div>
+          <div class="report-block" style="background:var(--c-block-mint);text-align:center;padding:var(--sp-lg)">
+            <div class="mono" style="font-size:28px;font-weight:700">${ev.score}</div>
+            <div style="font-size:12px;opacity:.6">答对 ${ev.correct}/${ev.total} 题</div>
+          </div>
+          ${ev.details?.map((d, i) => `
+          <div class="report-block">
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">${i + 1}. ${d.q}</div>
+            <p style="font-size:12px;line-height:1.5;${d.isCorrect ? "color:var(--c-success)" : "color:var(--c-error)"}">${d.isCorrect ? "✓ 正确" : "✗ 你的答案：" + d.userAnswer + " | 正确答案：" + d.correctAnswer}</p>
+            <p style="font-size:12px;opacity:.6">${d.why}</p>
+          </div>`).join("") || ""}
+          <div class="report-block profile-card">
+            <div class="card-title">总评</div>
+            <p style="font-size:13px">${ev.comment}</p>
+          </div>
+          <button class="quiz-start" data-action="finish-course">完成课程 ✓</button>
+        </div>`;
+    }
+    // 软技能结果
+    return `
+      <div class="learn-page">
+        <div class="report-head"><h2 style="font-size:22px;font-weight:var(--fw-700)">能力变化对比</h2></div>
+        <div class="report-block" style="background:var(--c-block-mint);text-align:center;padding:var(--sp-lg)">
+          <div class="mono" style="font-size:28px;font-weight:700">${ev.score || 60}</div>
+          <div style="font-size:12px;opacity:.6">${c.cap} · 后测得分</div>
+        </div>
+        <div class="report-block">
+          <div class="card-title">评估</div>
+          <p style="font-size:13px;line-height:1.7">${ev.comment || ""}</p>
+          <p style="font-size:12px;opacity:.6;margin-top:6px">💡 ${ev.improvement || ""}</p>
+        </div>
+        <button class="quiz-start" data-action="finish-course">完成课程 ✓</button>
+      </div>`;
+  }
+
+  async function ptStart() {
+    const c = state.course;
+    pt.sessionId = "pt_" + Date.now().toString(36);
+    pt.msgs = []; pt.round = 0; pt.finished = false; pt.eval = null; pt.answers = []; pt.qIdx = 0;
+    try {
+      const d = await ptApi("/api/posttest/start", { sessionId: pt.sessionId, courseId: c.id, type: c.type });
+      if (c.type === "hard") {
+        pt.questions = d.questions || [];
+        state.stage = "post-quiz";
+        $app().innerHTML = viewPostTestQuiz();
+      } else {
+        pt.msgs = d.msgs || []; pt.round = d.round || 1; pt.maxRounds = d.maxRounds || 5;
+        state.stage = "post-chat";
+        $app().innerHTML = viewPostTestChat();
+      }
+    } catch (e) {
+      if (c.type === "hard") { pt.questions = []; state.stage = "post-quiz"; $app().innerHTML = viewPostTestQuiz(); }
+      else { pt.msgs = [{ role: "agent", name: "测评导师", text: "你好！聊聊你在这个能力上的收获吧。" }]; state.stage = "post-chat"; $app().innerHTML = viewPostTestChat(); }
+    }
+  }
+
+  async function ptSend() {
+    if (pt.busy) return;
+    const input = document.getElementById("pt-input");
+    const text = (input?.value || "").trim();
+    if (!text) return;
+    if (input) input.value = "";
+    pt.msgs.push({ role: "user", name: "你", text });
+    const body = document.getElementById("pt-body");
+    if (body) { body.insertAdjacentHTML("beforeend", `<div class="chat-msg user"><div class="chat-bubble m">${text}</div></div>`); body.scrollTop = body.scrollHeight; }
+    pt.busy = true;
+    try {
+      const d = await ptApi("/api/posttest/chat", { sessionId: pt.sessionId, text });
+      pt.msgs = d.msgs || pt.msgs; pt.round = d.round || pt.round; pt.finished = d.finished || false;
+    } catch (e) { pt.msgs.push({ role: "agent", name: "测评导师", text: "（网络波动）" }); }
+    pt.busy = false;
+    state.stage = "post-chat";
+    $app().innerHTML = viewPostTestChat();
+    const b2 = document.getElementById("pt-body");
+    if (b2) b2.scrollTop = b2.scrollHeight;
+  }
+
+  async function ptEvaluate() {
+    state.stage = "post-result";
+    $app().innerHTML = viewPostTestResult();
+    try {
+      const c = state.course;
+      const d = await ptApi("/api/posttest/evaluate", { sessionId: pt.sessionId, courseId: c.id, type: c.type, answers: pt.answers });
+      pt.eval = d;
+    } catch (e) { pt.eval = { type: c_type, score: 60, comment: "评估暂不可用" }; }
+    $app().innerHTML = viewPostTestResult();
   }
 
   // ---------- 岗位任务/结业考试 ----------
@@ -486,6 +640,9 @@ window.TOS_M4 = (function () {
       if (state.stage === "task") return $app().innerHTML = viewTask();
       if (state.stage === "drill") return $app().innerHTML = viewDrill();
       if (state.stage === "exam") return $app().innerHTML = viewExam();
+      if (state.stage === "post-chat") return $app().innerHTML = viewPostTestChat();
+      if (state.stage === "post-quiz") return $app().innerHTML = viewPostTestQuiz();
+      if (state.stage === "post-result") return $app().innerHTML = viewPostTestResult();
       return $app().innerHTML = state.course ? viewCourse() : viewStation();
     }
     if (page === "mission") { pkg.load(); $app().innerHTML = state.missionOpen ? viewMissionOpen() : viewMission(); return; }
@@ -586,6 +743,17 @@ window.TOS_M4 = (function () {
       }
       case "sb-evaluate": sbEvaluate(); return true;
       case "finish-drill": state.stage = "exam"; app.innerHTML = viewExam(); return true;
+      case "pt-start": ptStart(); return true;
+      case "pt-send": ptSend(); return true;
+      case "pt-end": pt.finished = true; state.stage = "post-chat"; app.innerHTML = viewPostTestChat(); return true;
+      case "pt-evaluate": ptEvaluate(); return true;
+      case "pt-answer": {
+        pt.answers[pt.qIdx] = +el.dataset.i;
+        pt.qIdx++;
+        if (pt.qIdx < pt.questions.length) { app.innerHTML = viewPostTestQuiz(); }
+        else { ptEvaluate(); }
+        return true;
+      }
       case "finish-course": {
         pkg.data.courses[state.course.id].finished = true; pkg.save();
         state.stage = "course"; app.innerHTML = viewCourse();

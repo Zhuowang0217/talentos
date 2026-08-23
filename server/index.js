@@ -443,6 +443,34 @@ function buildTaskContext(candidateScore) {
 // 默认任务上下文（兼容旧调用）
 const TASK_CONTEXT = buildTaskContext(30);
 
+// 课程名映射（后测用）
+const COURSE_NAMES = {
+  C1: { cap: "岗位认知", type: "soft" },
+  C2: { cap: "沟通表达", type: "soft" },
+  C3: { cap: "AI 技术知识", type: "hard" },
+  C4: { cap: "评测集设计", type: "hard" },
+  C5: { cap: "产品方法", type: "hard" },
+  C6: { cap: "沟通表达", type: "soft" },
+};
+
+// 硬技能后测题库（每课 5 题）
+const POSTTEST_QUIZ = {
+  C3: [
+    { q: "大模型「幻觉」的本质原因是？", opts: ["训练数据太少", "生成机制基于概率预测", "算力不足"], a: 1, why: "LLM 按概率预测下一个词，没有事实校验机制，因此会生成看似合理但错误的内容。" },
+    { q: "RAG 方案中，检索质量主要影响什么？", opts: ["模型参数量", "回答的准确性", "用户界面美观"], a: 1, why: "RAG 依赖检索到的文档生成回答，检索不准则回答必然偏离。" },
+    { q: "判断任务是否适合交给 AI，最先看什么？", opts: ["预算多少", "输入输出是否明确且容错", "谁提的需求"], a: 1, why: "三要素：输入输出可描述、结果可验证、错误可容忍。" },
+    { q: "以下哪种做法能有效降低幻觉？", opts: ["换更大的模型", "接入真实资料检索并标注来源", "多生成几遍取最长的"], a: 1, why: "RAG 让模型基于给定资料回答，是最工程化的缓解手段。" },
+    { q: "置信度低于阈值时应该怎么做？", opts: ["强制输出", "自动转人工兜底", "让用户重试"], a: 1, why: "产品设计中必须有兜底机制，低置信度时转人工是标准做法。" },
+  ],
+  C4: [
+    { q: "评测集的主要作用是？", opts: ["美化报告", "量化 AI 功能质量", "增加开发工作量"], a: 1, why: "评测集是 AI 功能的质量标尺，用于持续监控和迭代。" },
+    { q: "设计评测集时，覆盖逻辑应考虑什么？", opts: ["只测正常情况", "正常+边界+异常三类场景", "越多越好"], a: 1, why: "只测正常场景无法发现真实问题，边界和异常才是质量关键。" },
+    { q: "Badcase 归因的第一步是？", opts: ["直接改代码", "分类定位问题源头", "忽略不管"], a: 1, why: "先分类（检索问题/生成问题/数据问题）再针对性修复。" },
+    { q: "评测用例应该谁来写？", opts: ["只由开发写", "产品+测试共同定义", "随机生成"], a: 1, why: "产品定义业务正确性，测试定义边界覆盖，两者缺一不可。" },
+    { q: "评测分数下降了，第一步应该？", opts: ["马上回滚", "分析下降原因", "加大推理资源"], a: 1, why: "先归因再行动，可能是数据变化、模型更新或评测集本身漂移。" },
+  ],
+};
+
 /* ============ 提示词模板引擎（人格 + 任务上下文 → 系统提示词） ============ */
 function buildPersonaPrompt(persona, taskCtx) {
   const t = taskCtx || TASK_CONTEXT;
@@ -725,6 +753,100 @@ const server = http.createServer(async (req, res) => {
     const result = MODE === "real" ? await sandboxEvaluate(sb.msgs) : sandboxVirtualEvaluate(sb.msgs);
     sb.evaluated = result;
     return json(res, 200, result);
+  }
+
+  /* ============ 后测（课程完成后能力复评） ============ */
+  if (url.pathname === "/api/posttest/start" && req.method === "POST") {
+    const { sessionId, courseId, type, preScore } = await readBody(req);
+    if (!sessions.has(sessionId)) sessions.set(sessionId, { evidence: [] });
+    const sess = sessions.get(sessionId);
+    const course = COURSE_NAMES[courseId] || { cap: "沟通表达", type: "soft" };
+
+    if (type === "hard") {
+      // 硬技能：5 道客观题
+      const bank = POSTTEST_QUIZ[courseId] || POSTTEST_QUIZ.C3;
+      sess.posttest = { type, courseId, questions: bank.slice(0, 5), answers: [], finished: false };
+      return json(res, 200, { mode: MODE, type, questions: bank.slice(0, 5).map(q => ({ q: q.q, opts: q.opts })) });
+    }
+
+    // 软技能：对话测评（聚焦该课程的能力域）
+    sess.posttest = { type, courseId, msgs: [], round: 0, maxRounds: 5, finished: false, evidence: [] };
+    const sys = `You are a friendly skill assessor conducting a brief follow-up assessment. The candidate just completed a training course on "${course.cap}". Ask 2-3 targeted questions about this specific skill to assess their current level. Keep it conversational and encouraging. 60 words max per response. Respond in Chinese.\n\nOutput JSON: {"reply":"your question","satisfied":false}`;
+    const opening = `你好！你刚完成了「${course.cap}」相关的课程学习和情景演练。我想简单聊几个问题，看看你在这个能力上的变化。先说说，你觉得这次培训中最大的收获是什么？`;
+    sess.posttest.msgs.push({ role: "agent", name: "测评导师", text: opening });
+    sess.posttest.round = 1;
+    return json(res, 200, { mode: MODE, type, msgs: sess.posttest.msgs, round: 1, maxRounds: 5 });
+  }
+
+  if (url.pathname === "/api/posttest/chat" && req.method === "POST") {
+    const { sessionId, text } = await readBody(req);
+    const sess = sessions.get(sessionId);
+    if (!sess?.posttest || sess.posttest.type !== "soft") return json(res, 200, { error: "not started" });
+    const pt = sess.posttest;
+    if (pt.finished) return json(res, 200, { msgs: pt.msgs, finished: true });
+    pt.msgs.push({ role: "user", name: "你", text });
+    if (text.trim().length >= 10) pt.evidence.push(text.trim());
+    if (pt.round >= pt.maxRounds) { pt.finished = true; return json(res, 200, { msgs: pt.msgs, finished: true, suggestReport: true }); }
+    pt.round++;
+    let reply;
+    if (MODE === "real") {
+      try {
+        const course = COURSE_NAMES[pt.courseId] || { cap: "沟通表达" };
+        const sys = `You are a skill assessor evaluating "${course.cap}". Ask a follow-up question based on the candidate's response. Keep it focused on this specific competency. 50 words max. Chinese.\nOutput JSON: {"reply":"question","satisfied":bool}`;
+        const hist = pt.msgs.slice(-6).map(m => `[${m.name}] ${m.text}`).join("\n");
+        const out = await llmChat([
+          { role: "system", content: sys },
+          { role: "user", content: "Dialogue:\n" + hist + "\n\nAsk your next question as the assessor. JSON format." },
+        ]);
+        const jm = out.replace(/```(?:json)?\n?/g, "").replace(/```/g, "").trim().match(/\{[\s\S]*\}/);
+        if (jm) { const p = JSON.parse(jm[0]); reply = (p.reply || "").slice(0, 120); if (p.satisfied) pt.finished = true; }
+        else reply = out.trim().slice(0, 120);
+      } catch (e) { reply = "能举个具体例子吗？"; }
+    } else {
+      reply = "能举个具体的例子说明你是怎么应用这个能力的吗？";
+    }
+    pt.msgs.push({ role: "agent", name: "测评导师", text: reply });
+    return json(res, 200, { msgs: pt.msgs, round: pt.round, maxRounds: pt.maxRounds, finished: pt.finished });
+  }
+
+  if (url.pathname === "/api/posttest/evaluate" && req.method === "POST") {
+    const { sessionId, courseId, type, answers } = await readBody(req);
+    const sess = sessions.get(sessionId);
+    if (!sess?.posttest) return json(res, 200, { error: "not started" });
+    const pt = sess.posttest;
+    if (pt.evaluated) return json(res, 200, pt.evaluated);
+    pt.finished = true;
+    const course = COURSE_NAMES[courseId] || { cap: "沟通表达" };
+
+    if (type === "hard") {
+      // 客观题评分
+      const bank = POSTTEST_QUIZ[courseId] || POSTTEST_QUIZ.C3;
+      const qs = bank.slice(0, 5);
+      let correct = 0;
+      const details = qs.map((q, i) => {
+        const userAns = answers?.[i] ?? -1;
+        const isCorrect = userAns === q.a;
+        if (isCorrect) correct++;
+        return { q: q.q, userAnswer: q.opts[userAns] || "未答", correctAnswer: q.opts[q.a], isCorrect, why: q.why };
+      });
+      const score = Math.round(correct / qs.length * 100);
+      pt.evaluated = { type, score, correct, total: qs.length, details, comment: correct >= 4 ? "掌握扎实" : correct >= 3 ? "基本掌握，部分知识点需巩固" : "建议重新学习微课内容" };
+      return json(res, 200, pt.evaluated);
+    }
+
+    // 软技能对话评估
+    if (MODE === "real") {
+      try {
+        const evidence = pt.evidence.join("\n");
+        const sys = `Evaluate the candidate's "${course.cap}" skill based on their responses. Score 0-100. Chinese response.\nOutput JSON: {"score":65,"level":2,"comment":"evaluation","improvement":"suggestion"}`;
+        const out = await llmChat([{ role: "system", content: sys }, { role: "user", content: "Candidate responses:\n" + evidence }]);
+        const jm = out.replace(/```(?:json)?\n?/g, "").replace(/```/g, "").trim().match(/\{[\s\S]*\}/);
+        if (jm) { pt.evaluated = JSON.parse(jm[0]); return json(res, 200, pt.evaluated); }
+      } catch (e) { /* fall through */ }
+    }
+    // 虚拟兜底
+    pt.evaluated = { type, score: 60, level: 2, comment: "基于对话表现的初步评估", improvement: "建议继续在实战中锻炼" };
+    return json(res, 200, pt.evaluated);
   }
 
   res.writeHead(404); res.end("not found");

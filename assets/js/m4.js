@@ -589,15 +589,20 @@ window.TOS_M4 = (function () {
           <div class="card-title">会议目标</div>
           <p style="font-size:13px;opacity:.7;line-height:1.6">${sc.goal || ""}</p>
         </div>
+        ${sc.phase1 ? `
+        <div class="report-block" style="background:var(--c-block-mint)">
+          <div class="card-title">${sc.phase1.title}</div>
+          ${(sc.phase1.items || []).map(it => `<div style="font-size:13px;line-height:1.8;padding:2px 0;display:flex;gap:6px"><span style="color:var(--c-success)">✓</span><span>${it}</span></div>`).join("")}
+        </div>` : ""}
+        ${sc.prd?.sections ? `
         <div class="report-block">
-          <div class="card-title">你的方案摘要（PRD）</div>
-          <div class="mono" style="font-size:12px;line-height:1.8;opacity:.7">
-            范围：${sc.prd?.scope || ""}<br>
-            技术：${sc.prd?.tech || ""}<br>
-            周期：${sc.prd?.timeline || ""}<br>
-            指标：${sc.prd?.metrics || ""}
-          </div>
-        </div>
+          <div class="card-title">${sc.prd.title || "PRD"}</div>
+          ${(sc.prd.sections || []).map(sec => `
+          <div style="margin-bottom:10px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:3px">${sec.h}</div>
+            <div style="font-size:12px;opacity:.7;line-height:1.7">${sec.c}</div>
+          </div>`).join("")}
+        </div>` : ""}
         <div class="report-block">
           <div class="card-title">参会人员</div>
           <div class="chapter-row"><span class="chapter-check" style="background:#c5b0f4;border:none;width:10px;height:10px;border-radius:50%"></span><div style="flex:1"><b style="font-size:13px">张工</b> <span class="mono" style="font-size:10px;opacity:.5">研发负责人</span><br><span style="font-size:11px;opacity:.6">技术功底深厚，对细节要求极高。沟通直接，不会拐弯抹角，但提出的质疑往往切中要害。</span></div></div>

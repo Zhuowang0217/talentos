@@ -36,6 +36,13 @@ const DICT = {
 
 /* ============ 会话状态（虚拟模式） ============ */
 const sessions = new Map();
+/* 缓存上限：超过 100 个会话按创建顺序淘汰最旧的，防止长跑内存增长（512MB 小机器） */
+setInterval(() => {
+  if (sessions.size > 100) {
+    let drop = sessions.size - 100;
+    for (const k of sessions.keys()) { sessions.delete(k); if (--drop <= 0) break; }
+  }
+}, 10 * 60 * 1000).unref();
 
 /* 外挂演示规则（2026-08-22 用户指定）：总对话轮次（主干+追问）不超过 3。
    实现方式：API 边界断路器——第 3 轮回复后追加收尾语并标记可结束。
